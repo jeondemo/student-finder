@@ -1,5 +1,5 @@
 // 학생찾기 PWA Service Worker
-const CACHE_NAME = 'student-finder-v6-enrollment';
+const CACHE_NAME = 'student-finder-v7-grades';
 const STATIC_ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', (event) => {
