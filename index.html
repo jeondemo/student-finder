@@ -459,12 +459,16 @@ function SearchTab({ password, onSelect }) {
                   {isExpanded && (
                     <div className="px-4 pb-3 pt-1" style={{background: '#fafaf9'}}>
                       <div className="grid gap-1.5" style={{gridTemplateColumns: `repeat(${Math.min(classNums.length, 6)}, 1fr)`}}>
-                        {classNums.map((cn) => (
-                          <div key={cn} className="text-center py-2 bg-white rounded-lg">
-                            <p className="text-[10px]" style={{color: '#a8a29e'}}>{cn}반</p>
-                            <p className="text-sm font-medium" style={{color: '#1c1917'}}>{gradeData.classes[cn]}</p>
-                          </div>
-                        ))}
+                        {classNums.map((cn) => {
+                          const teacher = stats.homerooms && stats.homerooms[`${grade}-${cn}`];
+                          return (
+                            <div key={cn} className="text-center py-2 px-1 bg-white rounded-lg">
+                              <p className="text-[10px]" style={{color: '#a8a29e'}}>{cn}반</p>
+                              <p className="text-sm font-medium" style={{color: '#1c1917'}}>{gradeData.classes[cn]}</p>
+                              {teacher && <p className="text-[9px] mt-0.5 truncate" style={{color: '#78716c'}}>{teacher}</p>}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -518,6 +522,7 @@ function ClassPickerTab({ password, onOpenClass }) {
 
 function ClassDetailScreen({ password, grade, classNum, onBack, onSelectStudent }) {
   const [students, setStudents] = useState([]);
+  const [homeroom, setHomeroom] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -529,7 +534,10 @@ function ClassDetailScreen({ password, grade, classNum, onBack, onSelectStudent 
       try {
         const result = await callApi('searchClass', password, { grade, classNum });
         if (cancelled) return;
-        if (result.success) setStudents(result.results || []);
+        if (result.success) {
+          setStudents(result.results || []);
+          setHomeroom(result.homeroom || '');
+        }
         else setError(result.error || '조회 실패');
       } catch { if (!cancelled) setError('서버 연결 실패'); }
       finally { if (!cancelled) setLoading(false); }
@@ -550,7 +558,10 @@ function ClassDetailScreen({ password, grade, classNum, onBack, onSelectStudent 
             <p className="text-sm" style={{color: 'rgba(255,255,255,0.75)'}}>반별 보기</p>
           </div>
           <div className="flex items-baseline justify-between">
-            <h1 className="text-2xl font-medium text-white">{grade}학년 {classNum}반</h1>
+            <div className="flex items-baseline gap-2">
+              <h1 className="text-2xl font-medium text-white">{grade}학년 {classNum}반</h1>
+              {homeroom && <span className="text-sm" style={{color: 'rgba(255,255,255,0.85)'}}>· {homeroom}</span>}
+            </div>
             {!loading && (
               <p className="text-sm" style={{color: 'rgba(255,255,255,0.75)'}}>
                 재학 {enrolledCount}명{students.length !== enrolledCount && ` / 전체 ${students.length}명`}
