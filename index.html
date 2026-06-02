@@ -708,12 +708,16 @@ function AdmissionDetailScreen({ password, univName, onBack }) {
   );
 }
 
-function ClassGrid({ students, onSelect, password }) {
+function ClassGrid({ students, onSelect, password, showAdmission }) {
   return (
     <div className="grid grid-cols-3 gap-2">
       {students.map((s) => {
         const notEnrolled = s.status && s.status !== '재학';
         const badge = getStatusBadgeStyle(s.status);
+        const hasAdmission = showAdmission && s.univName;
+        const univColor = hasAdmission ? getUnivColor(s.univName) : null;
+        const univShort = hasAdmission ? s.univName.replace('대학교','대').replace('학교','') : null;
+        const deptShort = hasAdmission && s.dept ? s.dept.replace('학과','').replace('전공','') : null;
         return (
           <button key={s.studentKey} onClick={() => onSelect(s)} className="bg-white rounded-xl overflow-hidden active:opacity-70 text-left relative" style={{border: '0.5px solid #e7e5e4', opacity: notEnrolled ? 0.5 : 1}}>
             <div className="aspect-square relative" style={{filter: notEnrolled ? 'grayscale(1)' : 'none'}}>
@@ -724,6 +728,13 @@ function ClassGrid({ students, onSelect, password }) {
             </div>
             <div className="p-1.5">
               <p className="text-xs font-medium text-center truncate" style={{color: '#1c1917'}}>{s.number}. {s.name}</p>
+              {hasAdmission ? (
+                <p className="text-[9px] text-center truncate mt-0.5 rounded px-1 py-0.5 font-medium" style={{background: univColor, color: 'white'}}>
+                  {univShort}{deptShort ? ` ${deptShort}` : ''}
+                </p>
+              ) : showAdmission ? (
+                <p className="text-[9px] text-center mt-0.5" style={{color: '#d6d3d1'}}>—</p>
+              ) : null}
             </div>
           </button>
         );
