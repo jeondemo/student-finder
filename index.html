@@ -86,10 +86,9 @@ function LoginScreen({ onLogin }) {
     try {
       const result = await callApi('login', pw);
       if (result.success) {
-        localStorage.setItem(PW_KEY, pw);
-        onLogin(pw);
-      } else setError(result.error || '로그인 실패');
-    } catch {
+  onLogin(pw);
+} else setError(result.error || '로그인 실패');
+} catch {
       setError('서버 연결 실패. 인터넷을 확인하세요.');
     } finally { setLoading(false); }
   };
@@ -1149,14 +1148,8 @@ function App() {
   const [checking, setChecking] = useState(true);
   
   useEffect(() => {
-    const saved = localStorage.getItem(PW_KEY);
-    if (saved) {
-      callApi('login', saved).then(result => {
-        if (result.success) setPassword(saved);
-        else localStorage.removeItem(PW_KEY);
-        setChecking(false);
-      }).catch(() => setChecking(false));
-    } else setChecking(false);
+    localStorage.removeItem(PW_KEY);
+    setChecking(false);
   }, []);
   
   if (checking) return <div className="min-h-screen flex items-center justify-center" style={{background: '#faf7f4'}}><div className="spinner" /></div>;
