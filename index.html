@@ -551,13 +551,12 @@ function ClassGrid({ students, onSelect, password }) {
           <button key={s.studentKey} onClick={() => onSelect(s)} className="bg-white rounded-xl overflow-hidden active:opacity-70 text-left relative" style={{border: '0.5px solid #e7e5e4', opacity: notEnrolled ? 0.5 : 1}}>
             <div className="aspect-square relative" style={{filter: notEnrolled ? 'grayscale(1)' : 'none'}}>
               <StudentPhoto student={s} password={password} className="w-full h-full object-cover" fallbackClass="w-full h-full flex items-center justify-center" showInitial={true} />
-              <span className="absolute top-1 right-1 text-[9px] px-1.5 py-0.5 rounded font-medium" style={{background: 'rgba(0,0,0,0.4)', color: 'white'}}>{s.number}</span>
               {badge && (
                 <span className="absolute bottom-1 left-1 text-[9px] px-1.5 py-0.5 rounded font-medium" style={{background: badge.bg, color: badge.color}}>{s.status}</span>
               )}
             </div>
             <div className="p-1.5">
-              <p className="text-xs font-medium text-center truncate" style={{color: '#1c1917'}}>{s.name}</p>
+              <p className="text-xs font-medium text-center truncate" style={{color: '#1c1917'}}>{s.number}. {s.name}</p>
             </div>
           </button>
         );
