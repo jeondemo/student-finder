@@ -1,5 +1,5 @@
 // 학생찾기 PWA Service Worker
-const CACHE_NAME = 'student-finder-v12-notes';
+const CACHE_NAME = 'student-finder-v13-cdn';
 const STATIC_ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', (event) => {
