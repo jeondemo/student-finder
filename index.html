@@ -1031,12 +1031,11 @@ function ClassPickerTab({ password, onOpenClass, preloadedStats }) {
   );
 }
 
-function ClassDetailScreen({ password, grade, classNum, onBack, onSelectStudent }) {
+function ClassDetailScreen({ password, grade, classNum, onBack, onSelectStudent, sortMode, setSortMode }) {
   const [students, setStudents] = useState([]);
   const [homeroom, setHomeroom] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [sortMode, setSortMode] = useState('number'); // 'number' | 'grade'
   const [gradesMap, setGradesMap] = useState({}); // { studentKey: gradesData }
   const [gradesLoading, setGradesLoading] = useState(false);
   
@@ -1255,6 +1254,7 @@ function MainScreen({ password, onLogout, preloadedStats }) {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [previousView, setPreviousView] = useState('main');
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
+  const [classSortMode, setClassSortMode] = useState('number');
   const [selectedUniv, setSelectedUniv] = useState(null);
   
   // 브라우저 뒤로가기 버튼 처리
@@ -1319,7 +1319,7 @@ if (view === 'admissionDetail' && selectedUniv) {
     return <StudentDetailScreen student={selectedStudent} password={password} onBack={handleBackFromStudent} onStatusChanged={handleStatusChanged} />;
   }
   if (view === 'classDetail' && selectedClass) {
-    return <ClassDetailScreen password={password} grade={selectedClass.grade} classNum={selectedClass.classNum} onBack={() => setView('main')} onSelectStudent={handleSelectStudent} />;
+    return <ClassDetailScreen password={password} grade={selectedClass.grade} classNum={selectedClass.classNum} onBack={() => setView('main')} onSelectStudent={handleSelectStudent} sortMode={classSortMode} setSortMode={setClassSortMode} />;
   }
   
   return (
