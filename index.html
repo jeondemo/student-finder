@@ -31,6 +31,46 @@ input, select, button { font-size: 16px !important; }
 const { useState, useEffect, useRef } = React;
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzgSO9kkIeM71XVBmdrPJe5AeJaUAjtGUAIwcxljXPyR65w7oxprKjQs0zM4KTqOcuz/exec';
 const PW_KEY = 'student_finder_pw';
+const photoUrlCache = {}; // { studentKey: url } - 사진 URL 캐시
+const photoQueue = []; // 요청 대기열
+let photoRequesting = 0; // 현재 요청 중인 개수
+const MAX_CONCURRENT_PHOTOS = 5; // 동시 요청 최대 개수
+
+// 사진 요청 큐 처리
+async function requestPhotoQueued(studentKey, password) {
+  // 캐시에 있으면 즉시 반환
+  if (photoUrlCache[studentKey] !== undefined) {
+    return photoUrlCache[studentKey];
+  }
+  
+  return new Promise((resolve) => {
+    const process = async () => {
+      photoRequesting++;
+      try {
+        const result = await callApi('getPhoto', password, { studentKey });
+        const url = result.success ? result.photoUrl : null;
+        photoUrlCache[studentKey] = url;
+        resolve(url);
+      } catch {
+        photoUrlCache[studentKey] = null;
+        resolve(null);
+      } finally {
+        photoRequesting--;
+        // 대기 중인 다음 요청 실행
+        if (photoQueue.length > 0 && photoRequesting < MAX_CONCURRENT_PHOTOS) {
+          const next = photoQueue.shift();
+          next();
+        }
+      }
+    };
+    
+    if (photoRequesting < MAX_CONCURRENT_PHOTOS) {
+      process();
+    } else {
+      photoQueue.push(process);
+    }
+  });
+}
 
 const CLASS_COUNT = { '1': 5, '2': 5, '3': 6 };
 const GRADE_COLORS = {
@@ -121,15 +161,15 @@ function StudentPhoto({ student, password, className, fallbackClass, showInitial
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setLoading(true);
-      setError(false);
       try {
-        const result = await callApi('getPhoto', password, { studentKey: student.studentKey });
-        if (cancelled) return;
-        if (result.success && result.photoUrl) setPhotoUrl(result.photoUrl);
-        else setError(true);
-      } catch { if (!cancelled) setError(true); }
-      finally { if (!cancelled) setLoading(false); }
+        const url = await requestPhotoQueued(student.studentKey, password);
+        if (!cancelled && url) {
+          setPhotoUrl(url);
+        }
+      } catch {}
+      finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => { cancelled = true; };
   }, [student.studentKey, password]);
