@@ -938,15 +938,21 @@ function SearchTab({ password, onSelect, onOpenAdmission }) {
   );
 }
 
-function ClassPickerTab({ password, onOpenClass }) {
+function ClassPickerTab({ password, onOpenClass, preloadedStats }) {
   const [selectedGrade, setSelectedGrade] = useState('1');
-  const [homerooms, setHomerooms] = useState({});
-  const [stats, setStats] = useState(null);
+  const [homerooms, setHomerooms] = useState(preloadedStats && preloadedStats.homerooms ? preloadedStats.homerooms : {});
+  const [stats, setStats] = useState(preloadedStats || null);
   const grades = ['1', '2', '3'];
   const classCount = CLASS_COUNT[selectedGrade] || 0;
   const classes = Array.from({ length: classCount }, (_, i) => String(i + 1));
   
+  // 미리 로딩된 데이터가 있으면 그것 사용, 없으면 새로 로딩
   useEffect(() => {
+    if (preloadedStats) {
+      setStats(preloadedStats);
+      if (preloadedStats.homerooms) setHomerooms(preloadedStats.homerooms);
+      return;
+    }
     (async () => {
       try {
         const result = await callApi('getStats', password);
@@ -958,7 +964,7 @@ function ClassPickerTab({ password, onOpenClass }) {
         }
       } catch {}
     })();
-  }, [password]);
+  }, [password, preloadedStats]);
   
   const gradeColors = {
     '1': { gradient: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)', bg: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', border: '#fcd34d', text: '#78350f', sub: '#92400e', label: '#b45309' },
@@ -1115,7 +1121,7 @@ function StudentDetailScreen({ student, password, onBack, onStatusChanged }) {
   );
 }
 
-function MainScreen({ password, onLogout }) {
+function MainScreen({ password, onLogout, preloadedStats }) {
   const [tab, setTab] = useState('search');
   const [view, setView] = useState('main');
   const [selectedClass, setSelectedClass] = useState(null);
@@ -1198,7 +1204,7 @@ if (view === 'admissionDetail' && selectedUniv) {
           {tab === 'search' ? (
             <SearchTab key={statsRefreshKey} password={password} onSelect={handleSelectStudent} onOpenAdmission={() => setView('admissionList')} />
           ) : (
-            <ClassPickerTab password={password} onOpenClass={handleOpenClass} />
+            <ClassPickerTab password={password} onOpenClass={handleOpenClass} preloadedStats={preloadedStats} />
           )}
         </div>
       </div>
@@ -1209,15 +1215,35 @@ if (view === 'admissionDetail' && selectedUniv) {
 function App() {
   const [password, setPassword] = useState(null);
   const [checking, setChecking] = useState(true);
+  const [preloadedStats, setPreloadedStats] = useState(null);
+  
+  // 로그인되면 즉시 통계 백그라운드 로딩
+  useEffect(() => {
+    if (!password) return;
+    (async () => {
+      try {
+        const result = await callApi('getStats', password);
+        if (result.success && result.stats) {
+          setPreloadedStats(result.stats);
+        }
+      } catch {}
+    })();
+  }, [password]);
   
   useEffect(() => {
-    localStorage.removeItem(PW_KEY);
-    setChecking(false);
+    const saved = localStorage.getItem(PW_KEY);
+    if (saved) {
+      callApi('login', saved).then(result => {
+        if (result.success) setPassword(saved);
+        else localStorage.removeItem(PW_KEY);
+        setChecking(false);
+      }).catch(() => setChecking(false));
+    } else setChecking(false);
   }, []);
   
   if (checking) return <div className="min-h-screen flex items-center justify-center" style={{background: '#faf7f4'}}><div className="spinner" /></div>;
   if (!password) return <LoginScreen onLogin={setPassword} />;
-  return <MainScreen password={password} onLogout={() => setPassword(null)} />;
+  return <MainScreen password={password} onLogout={() => setPassword(null)} preloadedStats={preloadedStats} />;
 }
 
 if ('serviceWorker' in navigator) {
