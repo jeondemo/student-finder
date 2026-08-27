@@ -941,6 +941,7 @@ function SearchTab({ password, onSelect, onOpenAdmission }) {
 function ClassPickerTab({ password, onOpenClass }) {
   const [selectedGrade, setSelectedGrade] = useState('1');
   const [homerooms, setHomerooms] = useState({});
+  const [stats, setStats] = useState(null);
   const grades = ['1', '2', '3'];
   const classCount = CLASS_COUNT[selectedGrade] || 0;
   const classes = Array.from({ length: classCount }, (_, i) => String(i + 1));
@@ -949,36 +950,69 @@ function ClassPickerTab({ password, onOpenClass }) {
     (async () => {
       try {
         const result = await callApi('getStats', password);
-        if (result.success && result.stats && result.stats.homerooms) {
-          setHomerooms(result.stats.homerooms);
+        if (result.success && result.stats) {
+          setStats(result.stats);
+          if (result.stats.homerooms) {
+            setHomerooms(result.stats.homerooms);
+          }
         }
       } catch {}
     })();
   }, [password]);
   
+  const gradeColors = {
+    '1': { gradient: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)', bg: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)', border: '#fcd34d', text: '#78350f', sub: '#92400e', label: '#b45309' },
+    '2': { gradient: 'linear-gradient(135deg, #fb923c 0%, #c2410c 100%)', bg: 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)', border: '#fdba74', text: '#7c2d12', sub: '#9a3412', label: '#c2410c' },
+    '3': { gradient: 'linear-gradient(135deg, #f87171 0%, #b91c1c 100%)', bg: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)', border: '#fca5a5', text: '#7f1d1d', sub: '#991b1b', label: '#b91c1c' },
+  };
+  
+  const gc = gradeColors[selectedGrade];
+  const gradeData = stats && stats.grades && stats.grades[selectedGrade];
+  const totalStudents = gradeData ? gradeData.total : 0;
+  
   return (
-    <div className="bg-white rounded-2xl p-4" style={{border: '0.5px solid #e7e5e4'}}>
-      <p className="text-xs font-medium mb-2 px-1" style={{color: '#a8a29e'}}>학년 선택</p>
-      <div className="grid grid-cols-3 gap-1.5 mb-4">
-        {grades.map((g) => (
-          <button key={g} onClick={() => setSelectedGrade(g)} className="py-3 rounded-xl text-sm font-medium active:opacity-70" style={selectedGrade === g ? {background: '#6d1818', color: 'white'} : {background: '#f5f5f4', color: '#57534e'}}>
-            {g}학년
-          </button>
-        ))}
-      </div>
-      <p className="text-xs font-medium mb-2 px-1" style={{color: '#a8a29e'}}>반 선택</p>
-      <div className="grid grid-cols-5 gap-1.5">
-        {classes.map((c) => {
-          const teacher = homerooms[`${selectedGrade}-${c}`];
-          return (
-            <button key={c} onClick={() => onOpenClass(selectedGrade, c)} className="py-2.5 px-1 rounded-xl active:opacity-70 flex flex-col items-center justify-center" style={{background: '#f5f5f4', color: '#57534e', minHeight: '56px'}}>
-              <span className="text-sm font-medium">{c}반</span>
-              {teacher && <span className="text-[10px] mt-0.5 truncate w-full text-center" style={{color: '#a8a29e'}}>{teacher}</span>}
+    <>
+      <div className="bg-white rounded-2xl p-4" style={{border: '0.5px solid #e7e5e4'}}>
+        <p className="text-xs font-medium mb-2 px-1" style={{color: '#a8a29e'}}>학년 선택</p>
+        <div className="grid grid-cols-3 gap-1.5 mb-4">
+          {grades.map((g) => (
+            <button key={g} onClick={() => setSelectedGrade(g)} className="py-3 rounded-xl text-sm font-medium active:opacity-70" style={selectedGrade === g ? {background: '#6d1818', color: 'white'} : {background: '#f5f5f4', color: '#57534e'}}>
+              {g}학년
             </button>
-          );
-        })}
+          ))}
+        </div>
+        <p className="text-xs font-medium mb-2 px-1" style={{color: '#a8a29e'}}>반 선택</p>
+        <div className="grid grid-cols-5 gap-1.5">
+          {classes.map((c) => {
+            const teacher = homerooms[`${selectedGrade}-${c}`];
+            const count = gradeData && gradeData.classes ? gradeData.classes[c] : null;
+            return (
+              <button key={c} onClick={() => onOpenClass(selectedGrade, c)} className="py-2 px-1 rounded-xl active:opacity-70 flex flex-col items-center justify-center gap-0.5" style={{background: '#f5f5f4', color: '#57534e', minHeight: '68px'}}>
+                <span className="text-sm font-medium">{c}반</span>
+                {teacher && <span className="text-[9px] truncate w-full text-center" style={{color: '#a8a29e'}}>{teacher}</span>}
+                {count !== null && <span className="text-[10px] font-medium" style={{color: '#6d1818'}}>{count}명</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
-    </div>
+      
+      {gradeData && (
+        <div className="mt-3 rounded-2xl p-4 flex items-center justify-between" style={{background: gc.bg, border: `0.5px solid ${gc.border}`}}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-medium text-lg" style={{background: gc.gradient}}>{selectedGrade}</div>
+            <div>
+              <p className="text-xs font-medium" style={{color: gc.sub}}>{selectedGrade}학년 총인원</p>
+              <p className="text-[10px]" style={{color: gc.label}}>{classCount}개 반</p>
+            </div>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <p className="text-3xl font-medium leading-none" style={{color: gc.text}}>{totalStudents}</p>
+            <p className="text-sm" style={{color: gc.sub}}>명</p>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
