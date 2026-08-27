@@ -938,7 +938,7 @@ function SearchTab({ password, onSelect, onOpenAdmission }) {
   );
 }
 
-function ClassPickerTab({ password, onOpenClass, preloadedStats }) {
+function ClassPickerTab({ password, onOpenClass, preloadedStats, onOpenGradeRanking }) {
   const [selectedGrade, setSelectedGrade] = useState('1');
   const [homerooms, setHomerooms] = useState(preloadedStats && preloadedStats.homerooms ? preloadedStats.homerooms : {});
   const [stats, setStats] = useState(preloadedStats || null);
@@ -946,7 +946,6 @@ function ClassPickerTab({ password, onOpenClass, preloadedStats }) {
   const classCount = CLASS_COUNT[selectedGrade] || 0;
   const classes = Array.from({ length: classCount }, (_, i) => String(i + 1));
   
-  // 미리 로딩된 데이터가 있으면 그것 사용, 없으면 새로 로딩
   useEffect(() => {
     if (preloadedStats) {
       setStats(preloadedStats);
@@ -975,7 +974,6 @@ function ClassPickerTab({ password, onOpenClass, preloadedStats }) {
   const gc = gradeColors[selectedGrade];
   const gradeData = stats && stats.grades && stats.grades[selectedGrade];
   
-  // 학년 총인원 계산: gradeData.total이 있으면 사용, 없으면 classes 값들 합산
   let totalStudents = 0;
   if (gradeData) {
     if (typeof gradeData.total === 'number') {
@@ -1013,7 +1011,7 @@ function ClassPickerTab({ password, onOpenClass, preloadedStats }) {
       </div>
       
       {gradeData && (
-        <div className="mt-3 rounded-2xl p-4 flex items-center justify-between" style={{background: gc.bg, border: `0.5px solid ${gc.border}`}}>
+        <button onClick={() => onOpenGradeRanking(selectedGrade)} className="w-full mt-3 rounded-2xl p-4 flex items-center justify-between active:opacity-70 text-left" style={{background: gc.bg, border: `0.5px solid ${gc.border}`}}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-medium text-lg" style={{background: gc.gradient}}>{selectedGrade}</div>
             <div>
@@ -1025,7 +1023,7 @@ function ClassPickerTab({ password, onOpenClass, preloadedStats }) {
             <p className="text-3xl font-medium leading-none" style={{color: gc.text}}>{totalStudents}</p>
             <p className="text-sm" style={{color: gc.sub}}>명</p>
           </div>
-        </div>
+        </button>
       )}
     </>
   );
@@ -1085,7 +1083,7 @@ function ClassDetailScreen({ password, grade, classNum, onBack, onSelectStudent,
   const isGrade3 = String(grade) === '3';
   const gradeLabel = isGrade3 ? '9등급' : '5등급';
   
-  // 성적 정보 추출 (1학기 시트 우선)
+    // 성적 정보 추출 (1학기 시트 우선)
   const getGradeInfo = (student) => {
     const gd = gradesMap[student.studentKey];
     if (!gd || !gd.semesters || !gd.semesters['2026_1학기']) return null;
@@ -1093,6 +1091,7 @@ function ClassDetailScreen({ password, grade, classNum, onBack, onSelectStudent,
     const suffix = isGrade3 ? '_9등급' : '_5등급';
     return {
       total: s[`전교과${suffix}`],
+      total9: s['전교과_9등급'],
       kor: s[`국${suffix}`],
       math: s[`수${suffix}`],
       eng: s[`영${suffix}`],
@@ -1188,8 +1187,133 @@ function ClassDetailScreen({ password, grade, classNum, onBack, onSelectStudent,
   );
 }
 
+function GradeRankingScreen({ password, grade, onBack, onSelectStudent }) {
+  const [students, setStudents] = useState([]);
+  const [gradesMap, setGradesMap] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  
+  const isGrade3 = String(grade) === '3';
+  const gradeLabel = isGrade3 ? '9등급' : '5등급';
+  const classCount = CLASS_COUNT[grade] || 0;
+  
+  // 학년 전체 학생 로드 (모든 반)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        // 각 반 학생을 병렬로 가져옴
+        const results = await Promise.all(
+          Array.from({ length: classCount }, (_, i) => String(i + 1)).map(c =>
+            callApi('searchClass', password, { grade, classNum: c })
+          )
+        );
+        if (cancelled) return;
+        
+        const allStudents = [];
+        results.forEach(result => {
+          if (result.success && result.results) {
+            allStudents.push(...result.results.filter(s => !s.status || s.status === '재학'));
+          }
+        });
+        
+        setStudents(allStudents);
+        
+        // 성적 정보 병렬 로드
+        const map = {};
+        await Promise.all(allStudents.map(async (s) => {
+          try {
+            const r = await callApi('getGrades', password, { studentKey: s.studentKey });
+            if (r.success && r.grades) {
+              map[s.studentKey] = r.grades;
+            }
+          } catch {}
+        }));
+        
+        if (!cancelled) {
+          setGradesMap(map);
+        }
+      } catch { if (!cancelled) setError('데이터 로딩 실패'); }
+      finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [grade, password, classCount]);
+  
+  const getGradeInfo = (student) => {
+    const gd = gradesMap[student.studentKey];
+    if (!gd || !gd.semesters || !gd.semesters['2026_1학기']) return null;
+    const s = gd.semesters['2026_1학기'];
+    const suffix = isGrade3 ? '_9등급' : '_5등급';
+    return {
+      total: s[`전교과${suffix}`],
+      total9: s['전교과_9등급'],
+      kor: s[`국${suffix}`],
+      math: s[`수${suffix}`],
+      eng: s[`영${suffix}`],
+    };
+  };
+  
+  const sortedStudents = React.useMemo(() => {
+    return students
+      .map(s => ({ student: s, gradeInfo: getGradeInfo(s) }))
+      .filter(x => x.gradeInfo && x.gradeInfo.total !== undefined && x.gradeInfo.total !== null)
+      .sort((a, b) => Number(a.gradeInfo.total) - Number(b.gradeInfo.total));
+  }, [students, gradesMap]);
+  
+  return (
+    <div className="min-h-screen" style={{background: '#faf7f4'}}>
+      <div className="pt-safe burgundy-gradient">
+        <div className="px-5 pb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <button onClick={onBack} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background: 'rgba(255,255,255,0.15)'}}>
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <p className="text-sm" style={{color: 'rgba(255,255,255,0.75)'}}>학년 전체 성적순</p>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <h1 className="text-2xl font-medium text-white">{grade}학년 전체</h1>
+            {!loading && <p className="text-sm" style={{color: 'rgba(255,255,255,0.75)'}}>재학 {students.length}명</p>}
+          </div>
+        </div>
+      </div>
+      
+      <div className="px-4 py-4 pb-safe">
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="spinner mb-3" />
+            <p className="text-xs" style={{color: '#a8a29e'}}>학년 전체 성적 불러오는 중... (5초 정도)</p>
+          </div>
+        )}
+        {!loading && error && <p className="text-center text-red-600 py-4">{error}</p>}
+        
+        {!loading && !error && (
+          <>
+            <div className="rounded-xl px-3 py-2 mb-3 flex items-center gap-1.5" style={{background: '#eff6ff', border: '0.5px solid #bfdbfe'}}>
+              <svg className="w-3.5 h-3.5" style={{color: '#1e40af'}} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <p className="text-[11px]" style={{color: '#1e40af'}}>{grade}학년 1학기 성적 전교과 기준</p>
+            </div>
+            
+            {sortedStudents.length === 0 ? (
+              <p className="text-center py-8 text-sm" style={{color: '#a8a29e'}}>성적 데이터가 없습니다</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {sortedStudents.map((x, idx) => (
+                  <GradeRow key={x.student.studentKey} rank={idx + 1} student={x.student} gradeInfo={x.gradeInfo} gradeLabel={gradeLabel} password={password} onClick={() => onSelectStudent(x.student)} showClass={true} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // 성적순 카드 컴포넌트
-function GradeRow({ rank, student, gradeInfo, gradeLabel, password, onClick }) {
+function GradeRow({ rank, student, gradeInfo, gradeLabel, password, onClick, showClass }) {
+  const isGrade3 = gradeLabel === '9등급';
   return (
     <button onClick={onClick} className="w-full bg-white rounded-xl p-2.5 flex items-center gap-2 active:opacity-70 text-left" style={{border: '0.5px solid #e7e5e4'}}>
       <div className="relative flex-shrink-0">
@@ -1201,12 +1325,19 @@ function GradeRow({ rank, student, gradeInfo, gradeLabel, password, onClick }) {
       
       <div className="flex-shrink-0" style={{minWidth: '48px'}}>
         <p className="text-sm font-medium leading-tight" style={{color: '#1c1917'}}>{student.name}</p>
-        <p className="text-[10px]" style={{color: '#a8a29e'}}>{student.number}번</p>
+        <p className="text-[10px]" style={{color: '#a8a29e'}}>{showClass ? `${student.classNum}반 ${student.number}번` : `${student.number}번`}</p>
       </div>
       
       <div className="text-center flex-shrink-0" style={{marginLeft: '12px'}}>
-        <p className="text-xl font-medium leading-none" style={{color: '#6d1818'}}>{gradeInfo.total || '-'}</p>
-        <p className="text-[9px] mt-0.5" style={{color: '#a8a29e'}}>{gradeLabel}</p>
+        <div className="flex items-baseline justify-center" style={{gap: '8px'}}>
+          <p className="text-xl font-medium leading-none" style={{color: '#6d1818'}}>{gradeInfo.total || '-'}</p>
+          {!isGrade3 && gradeInfo.total9 && (
+            <p className="text-[11px] leading-none" style={{color: '#a8a29e'}}>({gradeInfo.total9})</p>
+          )}
+        </div>
+        <p className="text-[9px] mt-1" style={{color: '#a8a29e', textAlign: 'center'}}>
+          {isGrade3 ? '9등급' : '5등급 (9등급)'}
+        </p>
       </div>
       
       <div className="flex gap-2 ml-auto flex-shrink-0">
@@ -1322,6 +1453,10 @@ if (view === 'admissionDetail' && selectedUniv) {
     return <ClassDetailScreen password={password} grade={selectedClass.grade} classNum={selectedClass.classNum} onBack={() => setView('main')} onSelectStudent={handleSelectStudent} sortMode={classSortMode} setSortMode={setClassSortMode} />;
   }
   
+  if (view === 'gradeRanking' && selectedClass) {
+    return <GradeRankingScreen password={password} grade={selectedClass.grade} onBack={() => setView('main')} onSelectStudent={handleSelectStudent} />;
+  }
+  
   return (
     <div className="min-h-screen" style={{background: '#faf7f4'}}>
       <HomeHeader onLogout={handleLogoutClick} subtitle={tab === 'search' ? '이름 또는 학년-반-번호로 검색하세요' : '학년과 반을 선택해주세요'} />
@@ -1331,7 +1466,7 @@ if (view === 'admissionDetail' && selectedUniv) {
           {tab === 'search' ? (
             <SearchTab key={statsRefreshKey} password={password} onSelect={handleSelectStudent} onOpenAdmission={() => setView('admissionList')} />
           ) : (
-            <ClassPickerTab password={password} onOpenClass={handleOpenClass} preloadedStats={preloadedStats} />
+            <ClassPickerTab password={password} onOpenClass={handleOpenClass} preloadedStats={preloadedStats} onOpenGradeRanking={(g) => { setSelectedClass({ grade: g, classNum: null }); setPreviousView('main'); setView('gradeRanking'); }} />
           )}
         </div>
       </div>
