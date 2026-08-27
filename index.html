@@ -1224,13 +1224,21 @@ function GradeRankingScreen({ password, grade, onBack, onSelectStudent }) {
         
         setStudents(allStudents);
         
-        // 성적 데이터를 semesters 구조로 변환
+                // 성적 데이터를 semesters 구조로 변환
         if (gradesResult.success && gradesResult.grades) {
+          const gd = gradesResult.grades;
+          const current = gd.current || gd;  // 하위 호환
+          const previousRanks = gd.previousRanks || {};
           const map = {};
-          Object.keys(gradesResult.grades).forEach(key => {
-            map[key] = { semesters: { '2026_1학기': gradesResult.grades[key] } };
+          Object.keys(current).forEach(key => {
+            map[key] = { 
+              semesters: { '2026_1학기': current[key] },
+              previousRank: previousRanks[key] || null
+            };
           });
-          if (!cancelled) setGradesMap(map);
+          if (!cancelled) {
+            setGradesMap(map);
+          }
         }
       } catch { if (!cancelled) setError('데이터 로딩 실패'); }
       finally { if (!cancelled) setLoading(false); }
@@ -1238,7 +1246,7 @@ function GradeRankingScreen({ password, grade, onBack, onSelectStudent }) {
     return () => { cancelled = true; };
   }, [grade, password, classCount]);
   
-  const getGradeInfo = (student) => {
+    const getGradeInfo = (student) => {
     const gd = gradesMap[student.studentKey];
     if (!gd || !gd.semesters || !gd.semesters['2026_1학기']) return null;
     const s = gd.semesters['2026_1학기'];
@@ -1249,14 +1257,26 @@ function GradeRankingScreen({ password, grade, onBack, onSelectStudent }) {
       kor: s[`국${suffix}`],
       math: s[`수${suffix}`],
       eng: s[`영${suffix}`],
+      previousRank: gd.previousRank,
     };
   };
   
-  const sortedStudents = React.useMemo(() => {
-    return students
+    const sortedStudents = React.useMemo(() => {
+    const sorted = students
       .map(s => ({ student: s, gradeInfo: getGradeInfo(s) }))
       .filter(x => x.gradeInfo && x.gradeInfo.total !== undefined && x.gradeInfo.total !== null)
       .sort((a, b) => Number(a.gradeInfo.total) - Number(b.gradeInfo.total));
+    // 현재 순위 부여 후 delta 계산
+    sorted.forEach((x, idx) => {
+      const currentRank = idx + 1;
+      const prevRank = x.gradeInfo.previousRank;
+      if (prevRank) {
+        x.gradeInfo.delta = prevRank - currentRank;
+      } else {
+        x.gradeInfo.delta = null;
+      }
+    });
+    return sorted;
   }, [students, gradesMap]);
   
   return (
@@ -1289,7 +1309,7 @@ function GradeRankingScreen({ password, grade, onBack, onSelectStudent }) {
           <>
             <div className="rounded-xl px-3 py-2 mb-3 flex items-center gap-1.5" style={{background: '#eff6ff', border: '0.5px solid #bfdbfe'}}>
               <svg className="w-3.5 h-3.5" style={{color: '#1e40af'}} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <p className="text-[11px]" style={{color: '#1e40af'}}>{grade}학년 1학기 성적 전교과 기준</p>
+              <p className="text-[11px]" style={{color: '#1e40af'}}>{grade}학년 1학기 성적 · {String(grade) === '1' ? '중학교 성적' : String(grade) === '2' ? '1학년 내신' : '2학년 내신'} 대비 변동</p>
             </div>
             
             {sortedStudents.length === 0 ? (
@@ -1297,7 +1317,7 @@ function GradeRankingScreen({ password, grade, onBack, onSelectStudent }) {
             ) : (
               <div className="flex flex-col gap-2">
                 {sortedStudents.map((x, idx) => (
-                  <GradeRow key={x.student.studentKey} rank={idx + 1} student={x.student} gradeInfo={x.gradeInfo} gradeLabel={gradeLabel} password={password} onClick={() => onSelectStudent(x.student)} showClass={true} />
+                  <GradeRow key={x.student.studentKey} rank={idx + 1} student={x.student} gradeInfo={x.gradeInfo} gradeLabel={gradeLabel} password={password} onClick={() => onSelectStudent(x.student)} showClass={true} showDelta={true} />
                 ))}
               </div>
             )}
@@ -1309,8 +1329,10 @@ function GradeRankingScreen({ password, grade, onBack, onSelectStudent }) {
 }
 
 // 성적순 카드 컴포넌트
-function GradeRow({ rank, student, gradeInfo, gradeLabel, password, onClick, showClass }) {
+function GradeRow({ rank, student, gradeInfo, gradeLabel, password, onClick, showClass, showDelta }) {
   const isGrade3 = gradeLabel === '9등급';
+  const delta = gradeInfo.delta;
+  
   return (
     <button onClick={onClick} className="w-full bg-white rounded-xl p-2.5 flex items-center gap-2 active:opacity-70 text-left" style={{border: '0.5px solid #e7e5e4'}}>
       <div className="relative flex-shrink-0">
@@ -1327,17 +1349,20 @@ function GradeRow({ rank, student, gradeInfo, gradeLabel, password, onClick, sho
       
       <div className="text-center flex-shrink-0" style={{marginLeft: '12px'}}>
         <div className="flex items-baseline justify-center" style={{gap: '8px'}}>
-          <p className="text-xl font-medium leading-none" style={{color: '#6d1818'}}>{gradeInfo.total || '-'}</p>
-          {!isGrade3 && gradeInfo.total9 && (
-            <p className="text-[11px] leading-none" style={{color: '#a8a29e'}}>({gradeInfo.total9})</p>
+          <p className="text-xl font-medium leading-none" style={{color: '#6d1818', minWidth: '32px', textAlign: 'right'}}>{gradeInfo.total || '-'}</p>
+          {!isGrade3 && (
+            <p className="text-[11px] leading-none" style={{color: '#a8a29e', minWidth: '32px', textAlign: 'left'}}>{gradeInfo.total9 ? `(${gradeInfo.total9})` : ''}</p>
           )}
         </div>
-        <p className="text-[9px] mt-1" style={{color: '#a8a29e', textAlign: 'center'}}>
-          {isGrade3 ? '9등급' : '5등급 (9등급)'}
-        </p>
+        <div className="flex justify-center mt-1" style={{gap: '8px'}}>
+          <p className="text-[9px] leading-none" style={{color: '#a8a29e', minWidth: '32px', textAlign: 'right'}}>{isGrade3 ? '9등급' : '5등급'}</p>
+          {!isGrade3 && (
+            <p className="text-[9px] leading-none" style={{color: '#a8a29e', minWidth: '32px', textAlign: 'left'}}>(9등급)</p>
+          )}
+        </div>
       </div>
       
-      <div className="flex gap-2 ml-auto flex-shrink-0">
+      <div className="flex items-center gap-2 ml-auto flex-shrink-0">
         <div className="text-center">
           <p className="text-[9px] leading-none" style={{color: '#a8a29e'}}>국</p>
           <p className="text-[13px] font-medium mt-0.5" style={{color: '#1c1917'}}>{gradeInfo.kor || '-'}</p>
@@ -1350,6 +1375,28 @@ function GradeRow({ rank, student, gradeInfo, gradeLabel, password, onClick, sho
           <p className="text-[9px] leading-none" style={{color: '#a8a29e'}}>영</p>
           <p className="text-[13px] font-medium mt-0.5" style={{color: '#1c1917'}}>{gradeInfo.eng || '-'}</p>
         </div>
+        {showDelta && (
+          <div className="text-center pl-1.5" style={{borderLeft: '0.5px solid #e7e5e4'}}>
+            <p className="text-[8px] leading-none" style={{color: '#a8a29e'}}>전성적대비</p>
+            <div className="flex items-center justify-center mt-0.5" style={{gap: '2px'}}>
+              {delta === null ? (
+                <span className="text-[12px] font-medium" style={{color: '#a8a29e'}}>-</span>
+              ) : delta > 0 ? (
+                <>
+                  <svg width="7" height="6" viewBox="0 0 10 8" fill="#dc2626"><path d="M5 0 L10 8 L0 8 Z"/></svg>
+                  <span className="text-[12px] font-medium" style={{color: '#dc2626'}}>+{delta}</span>
+                </>
+              ) : delta < 0 ? (
+                <>
+                  <svg width="7" height="6" viewBox="0 0 10 8" fill="#2563eb"><path d="M0 0 L10 0 L5 8 Z"/></svg>
+                  <span className="text-[12px] font-medium" style={{color: '#2563eb'}}>{delta}</span>
+                </>
+              ) : (
+                <span className="text-[12px] font-medium" style={{color: '#78716c'}}>0</span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </button>
   );
