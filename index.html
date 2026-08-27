@@ -1197,23 +1197,26 @@ function GradeRankingScreen({ password, grade, onBack, onSelectStudent }) {
   const gradeLabel = isGrade3 ? '9등급' : '5등급';
   const classCount = CLASS_COUNT[grade] || 0;
   
-  // 학년 전체 학생 로드 (모든 반)
+    // 학년 전체 학생 + 성적 로드 (2번의 API 호출만)
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError('');
       try {
-        // 각 반 학생을 병렬로 가져옴
-        const results = await Promise.all(
-          Array.from({ length: classCount }, (_, i) => String(i + 1)).map(c =>
-            callApi('searchClass', password, { grade, classNum: c })
-          )
-        );
+        // 학생 목록과 학년 전체 성적을 동시에 가져옴
+        const [classResults, gradesResult] = await Promise.all([
+          Promise.all(
+            Array.from({ length: classCount }, (_, i) => String(i + 1)).map(c =>
+              callApi('searchClass', password, { grade, classNum: c })
+            )
+          ),
+          callApi('getGradeSemesterAll', password, { grade })
+        ]);
         if (cancelled) return;
         
         const allStudents = [];
-        results.forEach(result => {
+        classResults.forEach(result => {
           if (result.success && result.results) {
             allStudents.push(...result.results.filter(s => !s.status || s.status === '재학'));
           }
@@ -1221,19 +1224,13 @@ function GradeRankingScreen({ password, grade, onBack, onSelectStudent }) {
         
         setStudents(allStudents);
         
-        // 성적 정보 병렬 로드
-        const map = {};
-        await Promise.all(allStudents.map(async (s) => {
-          try {
-            const r = await callApi('getGrades', password, { studentKey: s.studentKey });
-            if (r.success && r.grades) {
-              map[s.studentKey] = r.grades;
-            }
-          } catch {}
-        }));
-        
-        if (!cancelled) {
-          setGradesMap(map);
+        // 성적 데이터를 semesters 구조로 변환
+        if (gradesResult.success && gradesResult.grades) {
+          const map = {};
+          Object.keys(gradesResult.grades).forEach(key => {
+            map[key] = { semesters: { '2026_1학기': gradesResult.grades[key] } };
+          });
+          if (!cancelled) setGradesMap(map);
         }
       } catch { if (!cancelled) setError('데이터 로딩 실패'); }
       finally { if (!cancelled) setLoading(false); }
