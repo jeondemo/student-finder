@@ -968,7 +968,16 @@ function ClassPickerTab({ password, onOpenClass }) {
   
   const gc = gradeColors[selectedGrade];
   const gradeData = stats && stats.grades && stats.grades[selectedGrade];
-  const totalStudents = gradeData ? gradeData.total : 0;
+  
+  // 학년 총인원 계산: gradeData.total이 있으면 사용, 없으면 classes 값들 합산
+  let totalStudents = 0;
+  if (gradeData) {
+    if (typeof gradeData.total === 'number') {
+      totalStudents = gradeData.total;
+    } else if (gradeData.classes) {
+      totalStudents = Object.values(gradeData.classes).reduce((a, b) => a + (b || 0), 0);
+    }
+  }
   
   return (
     <>
