@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>운영 매뉴얼 · 학생 찾기</title>
+<style>
+  :root {
+    --burgundy: #6d1818; --burgundy-2: #991b1b; --cream: #faf7f4;
+    --ink: #1c1917; --ink-2: #57534e; --ink-3: #a8a29e; --line: #e7e5e4; --line-2: #f0f0ef;
+    --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--cream); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+
+  .hero { background: linear-gradient(135deg, var(--burgundy) 0%, var(--burgundy-2) 100%); color: white;
+    padding: calc(var(--safe-top) + 16px) 20px 28px; }
+  .hero .top { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .back { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,.15); display: flex; align-items: center; justify-content: center; text-decoration: none; }
+  .back svg { width: 16px; height: 16px; }
+  .hero .crumb { font-size: 13px; color: rgba(255,255,255,.75); }
+  .hero h1 { font-size: 24px; font-weight: 500; margin: 0; line-height: 1.25; }
+  .hero p { margin: 6px 0 0; font-size: 13px; color: rgba(255,255,255,.75); }
+
+  main { padding: 0 16px calc(var(--safe-bottom) + 32px); max-width: 560px; margin: 0 auto; }
+
+  .rule { margin-top: -14px; background: white; border: .5px solid var(--line); border-radius: 16px; padding: 14px 16px; }
+  .rule p { margin: 0 0 8px; font-size: 13px; color: var(--ink-2); }
+  .flow { display: flex; align-items: stretch; gap: 6px; }
+  .flow div { flex: 1; background: var(--cream); border-radius: 10px; padding: 8px 6px; text-align: center; font-size: 12px; line-height: 1.35; color: var(--ink); }
+  .flow div b { display: block; font-size: 11px; color: var(--burgundy); font-weight: 500; margin-bottom: 2px; }
+  .flow span { align-self: center; color: var(--ink-3); font-size: 12px; }
+
+  h2 { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500; margin: 26px 4px 10px; }
+  h2 .when { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 7px; }
+  .when.mar { background: #fef3c7; color: #92400e; }
+  .when.sem { background: #dbeafe; color: #1e40af; }
+  .when.feb { background: #fee2e2; color: #991b1b; }
+  .when.any { background: #f5f5f4; color: var(--ink-2); }
+
+  .list { background: white; border: .5px solid var(--line); border-radius: 16px; overflow: hidden; }
+  details { border-top: .5px solid var(--line-2); }
+  details:first-child { border-top: 0; }
+  summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-size: 14px; }
+  summary::-webkit-details-marker { display: none; }
+  summary .box { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid #d6d3d1; flex-shrink: 0; }
+  summary .chev { margin-left: auto; width: 16px; height: 16px; color: #d6d3d1; transition: transform .15s; flex-shrink: 0; }
+  details[open] summary .chev { transform: rotate(180deg); }
+  summary.run { background: #fef2f2; color: var(--burgundy); font-weight: 500; }
+  summary.run .box { border: 0; background: var(--burgundy); position: relative; }
+  summary.run .box::after { content: ""; position: absolute; left: 6px; top: 4px; border-left: 7px solid white; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+  .body { padding: 0 14px 14px 42px; font-size: 13px; line-height: 1.7; color: var(--ink-2); }
+  .body p { margin: 0 0 6px; }
+  .body code, .rule code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; background: #f5f5f4; padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+  .body table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 12px; }
+  .body td { border: .5px solid var(--line); padding: 4px 6px; }
+  .body .note { color: var(--burgundy); }
+  .body .warn { background: #fef3c7; color: #92400e; border-radius: 8px; padding: 6px 10px; margin-top: 6px; }
+
+  .links { margin-top: 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .links a { background: white; border: .5px solid var(--line); border-radius: 14px; padding: 12px; text-decoration: none; display: block; }
+  .links a b { display: block; font-size: 13px; font-weight: 500; color: var(--ink); }
+  .links a small { display: block; font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+  .foot { text-align: center; font-size: 11px; color: var(--ink-3); margin-top: 24px; }
+  @media (prefers-reduced-motion: reduce) { summary .chev { transition: none; } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="top">
+    <a class="back" href="./" aria-label="앱으로 돌아가기">
+      <svg fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </a>
+    <span class="crumb">운영 매뉴얼</span>
+  </div>
+  <h1>학기초 꼭 해야 할 작업</h1>
+  <p>학생 찾기 앱 · 연도 넘어갈 때 이것만 하면 돼요</p>
+</header>
+
+<main>
+  <section class="rule">
+    <p>모든 작업은 이 흐름 하나예요. 시트에 붙여넣고, GAS에서 <code>학기초정리</code> 버튼을 누르면 학번·담임·사진이 자동으로 정리돼요.</p>
+    <div class="flow">
+      <div><b>1</b>학기초정리 실행<br>빈 시트 생김</div><span>→</span>
+      <div><b>2</b>시트에 데이터<br>붙여넣기</div><span>→</span>
+      <div><b>3</b>학기초정리<br>한 번 더</div>
+    </div>
+  </section>
+
+  <h2><span class="when mar">3월</span>새 학년 시작</h2>
+  <div class="list">
+    <details><summary><span class="box"></span>설정 시트 → 현재학년도 바꾸기<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p><code>설정</code> 시트의 <code>현재학년도</code> 값을 새 연도로 (예: 2026 → 2027). 이걸 제일 먼저 하세요 — 학기초정리가 이 숫자를 보고 시트를 만들어요.</p></div></details>
+    <details><summary class="run"><span class="box"></span>학기초정리 실행 — 빈 시트 생성<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>구글 시트 → 확장 프로그램 → Apps Script → 함수 목록에서 <code>학기초정리</code> 선택 → ▶ 실행.</p><p>새 연도의 <code>성적_2027_1학년_1학기</code> 같은 빈 시트와 <code>진학_2028</code>, <code>학생개인번호</code>가 생겨요.</p></div></details>
+    <details><summary><span class="box"></span>NEIS 명렬표 → 학생개인번호 시트<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>1·2·3학년 명렬표(학생개인번호 있는 것)를 합쳐서 붙여넣기. 열 순서: <code>학년 | 반 | 번호 | 학생이름 | 학번</code></p><p>재학생은 작년과 같은 번호, 신입생은 새 번호가 들어와요. 이 시트가 학번의 원천이에요.</p></div></details>
+    <details><summary><span class="box"></span>학생정보 시트 → 새 명렬로 교체<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>기존 내용 지우고 새 학년 명렬 붙여넣기. 열 순서는 그대로:</p>
+      <table><tr><td>A 학년</td><td>B 반</td><td>C 번호</td><td>D 학생이름</td><td>E 학생전화</td><td>F 학부모전화</td><td>G 주소</td><td>H 학적</td><td>I (빈칸)</td><td>J 특이사항</td><td>K 학번</td></tr></table>
+      <p>K열 학번은 <span class="note">비워두세요.</span> 학기초정리가 채워요.</p>
+      <div class="warn">졸업생은 여기서 빠지지만 성적·진학·사진은 학번으로 남아있어요.</div></div></details>
+    <details><summary><span class="box"></span>담임 시트 → 새 담임<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p><code>학년 | 반 | 담임이름</code>. 반 개수가 바뀌면 GitHub의 <code>index.html</code>에서 <code>CLASS_COUNT</code> 숫자도 맞춰주세요.</p></div></details>
+    <details><summary><span class="box"></span>신입생 사진 업로드<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>드라이브 <code>학생사진/1-1/</code> 폴더에 지금처럼 <code>이름(번호).jpg</code>로. 학기초정리가 <code>학번</code> 폴더로 자동 복사해요.</p><p>재학생 사진은 이미 학번 폴더에 있으니 아무것도 안 해도 돼요.</p></div></details>
+    <details><summary><span class="box"></span>신입생 중학교 성적 → 성적_중학교<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>기존 행 아래에 이어서 붙여넣기: <code>(학번 빈칸) | 학년 | 반 | 번호 | 학생이름 | 출신중 | 중학교성적</code></p><p>학교 엑셀 형식이 다르면 Claude에게 파일을 주고 "시트 붙여넣기용으로 변환해줘" 하면 돼요.</p></div></details>
+    <details><summary class="run"><span class="box"></span>학기초정리 한 번 더 — 학번·사진 정리<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>결과 팝업에서 <b>못 찾음</b>에 나온 학생만 확인하세요. 대개 이름 오타나 반·번호 불일치예요. 전학·자퇴생은 못 찾아도 정상.</p></div></details>
+  </div>
+
+  <h2><span class="when sem">학기말</span>성적 추가 (7월 · 12월)</h2>
+  <div class="list">
+    <details><summary><span class="box"></span>성적 파일 변환 요청<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>학교에서 받은 성적 엑셀(학년별 3개)을 Claude에게 올리고 <b>"성적 시트 붙여넣기용으로 변환해줘"</b>. 학급코드·헤더 정리해서 돌려줘요.</p></div></details>
+    <details><summary><span class="box"></span>해당 학기 시트에 붙여넣기<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>1학기 → <code>성적_2027_1학년_1학기</code>, 2학기 → <code>성적_2027_1학년_2학기</code> (학년별 3개). 시트는 3월에 이미 만들어져 있어요. A1부터 통째로 붙여넣기.</p><p>앱은 시트 이름을 보고 자동으로 "1학년 2학기 내신 · 2027" 카드를 만들고, 성적순·전성적대비도 최신 학기 기준으로 바뀌어요.</p></div></details>
+    <details><summary class="run"><span class="box"></span>학기초정리 실행 — 학번 채우기<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>이름이 학기초정리지만 아무 때나 실행해도 안전해요. 이미 채워진 건 건너뛰어요.</p></div></details>
+  </div>
+
+  <h2><span class="when feb">2월</span>졸업생 진학 결과</h2>
+  <div class="list">
+    <details><summary><span class="box"></span>진학_YYYY 시트에 결과 입력<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>YYYY = 대학 입학 연도. 3학년 명렬을 붙여넣고 <code>진학대학</code>, <code>학과</code> 채우기. 열 순서:</p>
+      <table><tr><td>학번</td><td>학년</td><td>반</td><td>번호</td><td>학생이름</td><td>진학대학</td><td>학과</td><td>학생전화</td><td>담임</td></tr></table>
+      <p>학번·담임은 비워두세요. 대학명은 정확히 같은 글자로 (예: <code>연세대학교</code>).</p>
+      <p><b>재수생</b> (작년 졸업생이 올해 입학): 학번 칸에 <code>재수생</code>이라고 쓰고 이름·대학·학과 입력 → 명단에 "재수" 뱃지로 표시.</p>
+      <p><b>재수·미진학·유학</b> 등 대학이 없는 경우: 진학대학 칸에 그 단어를 쓰면 목록 맨 아래에 묶여요.</p></div></details>
+    <details><summary class="run"><span class="box"></span>학기초정리 실행 — 3월 명렬 교체 전에!<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><div class="warn">3학년이 아직 학생정보 시트에 있을 때 실행해야 학번과 담임이 채워져요. 명렬을 먼저 바꾸면 못 찾아요.</div></div></details>
+    <details><summary><span class="box"></span>대학순위 시트 정리 (선택)<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>앱 진학현황 목록은 이 시트 순서대로 나와요. 위로 올릴 대학은 줄을 위로. 시트에 없는 대학은 맨 아래 인원순. 부분 일치라 <code>서울대</code>만 써도 <code>서울대학교</code>에 맞아요.</p></div></details>
+  </div>
+
+  <h2><span class="when any">수시</span>그때그때</h2>
+  <div class="list">
+    <details><summary><span class="box"></span>전입생이 왔을 때<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>① 학생개인번호 시트에 한 줄 추가 ② 학생정보에 한 줄 추가 (학번 빈칸) ③ 사진 업로드 ④ 학기초정리 실행.</p></div></details>
+    <details><summary><span class="box"></span>전학·자퇴<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>앱에서 학생 카드 열고 학적 뱃지 눌러 바꾸면 끝. 시트를 직접 고칠 필요 없어요.</p></div></details>
+    <details><summary><span class="box"></span>담임이 바뀌었을 때<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p><code>담임</code> 시트만 고치면 바로 반영. 진학 시트의 담임 칸은 졸업 당시 기록이라 안 바뀌어요.</p></div></details>
+  </div>
+
+  <h2><span class="when any">문제</span>안 될 때</h2>
+  <div class="list">
+    <details><summary><span class="box"></span>GAS 코드를 고쳤는데 앱에 반영이 안 돼요<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>저장만으로는 안 돼요. Apps Script 우측 상단 <b>배포 → 배포 관리 → ✏️ → 버전: 새 버전 → 배포</b>. (기존 URL 유지)</p></div></details>
+    <details><summary><span class="box"></span>index.html을 고쳤는데 폰에서 옛날 화면이 나와요<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>GitHub의 <code>service-worker.js</code> 첫 줄 <code>CACHE_NAME</code>의 버전 숫자를 하나 올리고 커밋. 폰에서 앱 완전 종료 후 재실행.</p></div></details>
+    <details><summary><span class="box"></span>어떤 학생 사진이 안 나와요<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>드라이브 <code>학생사진/학번/</code>에 <code>학번.jpg</code>가 있는지 확인. 없으면 학년-반 폴더에 <code>이름(번호).jpg</code>로 올리고 학기초정리 실행. 학생정보 K열 학번이 비어 있어도 안 나와요.</p></div></details>
+    <details><summary><span class="box"></span>성적이 안 나와요<svg class="chev" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></summary>
+      <div class="body"><p>① 시트 이름이 정확한지 (<code>성적_2027_1학년_1학기</code> 형식) ② 그 시트 A열 학번이 채워졌는지 ③ GAS 재배포 했는지.</p></div></details>
+  </div>
+
+  <div class="links">
+    <a href="https://docs.google.com/spreadsheets/d/1wzwbcRHjT5OKzCKdmdNkdlaqBpjP1EyCLKiBep_WHow" target="_blank" rel="noopener"><b>구글 시트 열기</b><small>학생정보 · 성적 · 진학</small></a>
+    <a href="https://docs.google.com/spreadsheets/d/1wzwbcRHjT5OKzCKdmdNkdlaqBpjP1EyCLKiBep_WHow" target="_blank" rel="noopener"><b>Apps Script (학기초정리)</b><small>시트 → 확장 프로그램 → Apps Script</small></a>
+    <a href="https://drive.google.com/drive/folders/1h9scC0AJHfm7zQa3UtPlXunXKYktsZWF" target="_blank" rel="noopener"><b>학생사진 폴더</b><small>구글 드라이브</small></a>
+    <a href="https://github.com/jeondemo/student-finder" target="_blank" rel="noopener"><b>GitHub 저장소</b><small>index.html · service-worker.js</small></a>
+  </div>
+  <p class="foot">막히면 Claude에게 "학생찾기 앱 학기초 작업 중인데…" 하고 물어보세요. 구조를 다 기억하고 있어요.</p>
+</main>
+</body>
+</html>
