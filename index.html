@@ -158,7 +158,8 @@ function StudentPhoto({ student, password, className, fallbackClass, showInitial
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   
-  useEffect(() => {
+    useEffect(() => {
+    if (student.photoUrl) { setPhotoUrl(student.photoUrl); setLoading(false); return; }
     let cancelled = false;
     (async () => {
       try {
