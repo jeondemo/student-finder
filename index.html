@@ -1424,26 +1424,34 @@ function MainScreen({ password, onLogout, preloadedStats }) {
   const [selectedUniv, setSelectedUniv] = useState(null);
   const [admissionYear, setAdmissionYear] = useState(null);
   
-  // 브라우저 뒤로가기 버튼 처리
+    // 뒤로가기 처리 — 앞으로 갈 때만 기록 추가, 뒤로 갈 때는 추가 안 함
+  const navBack = React.useRef(false);
   useEffect(() => {
-    // 메인이 아닐 때만 history 항목 추가
-    if (view !== 'main') {
+    if (view !== 'main' && !navBack.current) {
       window.history.pushState({ view }, '');
     }
-    
+    navBack.current = false;
+
     const handlePopState = () => {
+      navBack.current = true;
       if (view === 'studentDetail') {
         setSelectedStudent(null);
         setView(previousView);
-      } else if (view === 'classDetail') {
+      } else if (view === 'admissionDetail') {
+        setView('admissionList');
+      } else if (view !== 'main') {
         setSelectedClass(null);
         setView('main');
+      } else {
+        navBack.current = false;
       }
     };
-    
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [view, previousView]);
+
+  // 화면 위 ← 버튼도 같은 길로
+  const goBack = () => window.history.back();
   
   const handleLogoutClick = () => {
     if (confirm('로그아웃 하시겠어요?')) {
@@ -1477,20 +1485,19 @@ function MainScreen({ password, onLogout, preloadedStats }) {
     }
   };
   if (view === 'admissionList') {
-    return <AdmissionListScreen password={password} onBack={() => setView('main')} onSelectUniv={(univ) => { setSelectedUniv(univ); setView('admissionDetail'); }} year={admissionYear} setYear={setAdmissionYear} />;
-}
-if (view === 'admissionDetail' && selectedUniv) {
-  return <AdmissionDetailScreen password={password} univName={selectedUniv} onBack={() => setView('admissionList')} year={admissionYear} />;
-}
+    return <AdmissionListScreen password={password} onBack={goBack} onSelectUniv={(univ) => { setSelectedUniv(univ); setView('admissionDetail'); }} year={admissionYear} setYear={setAdmissionYear} />;
+  }
+  if (view === 'admissionDetail' && selectedUniv) {
+    return <AdmissionDetailScreen password={password} univName={selectedUniv} onBack={goBack} year={admissionYear} />;
+  }
   if (view === 'studentDetail' && selectedStudent) {
-    return <StudentDetailScreen student={selectedStudent} password={password} onBack={handleBackFromStudent} onStatusChanged={handleStatusChanged} />;
+    return <StudentDetailScreen student={selectedStudent} password={password} onBack={goBack} onStatusChanged={handleStatusChanged} />;
   }
   if (view === 'classDetail' && selectedClass) {
-    return <ClassDetailScreen password={password} grade={selectedClass.grade} classNum={selectedClass.classNum} onBack={() => setView('main')} onSelectStudent={handleSelectStudent} sortMode={classSortMode} setSortMode={setClassSortMode} />;
+    return <ClassDetailScreen password={password} grade={selectedClass.grade} classNum={selectedClass.classNum} onBack={goBack} onSelectStudent={handleSelectStudent} sortMode={classSortMode} setSortMode={setClassSortMode} />;
   }
-  
   if (view === 'gradeRanking' && selectedClass) {
-    return <GradeRankingScreen password={password} grade={selectedClass.grade} onBack={() => setView('main')} onSelectStudent={handleSelectStudent} />;
+    return <GradeRankingScreen password={password} grade={selectedClass.grade} onBack={goBack} onSelectStudent={handleSelectStudent} />;
   }
   
   return (
