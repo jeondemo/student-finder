@@ -1092,9 +1092,7 @@ function ClassDetailScreen({ password, grade, classNum, onBack, onSelectStudent,
       .filter(x => x.gradeInfo && x.gradeInfo.total !== undefined && x.gradeInfo.total !== null)
       .sort((a, b) => Number(a.gradeInfo.total) - Number(b.gradeInfo.total));
   }, [sortMode, students, gradesMap]);
-      .sort((a, b) => Number(a.gradeInfo.total) - Number(b.gradeInfo.total));
-  }, [sortMode, students, gradesMap]);
-  
+        
   return (
     <div className="min-h-screen" style={{background: '#faf7f4'}}>
       <div className="pt-safe burgundy-gradient">
