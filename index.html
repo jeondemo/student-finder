@@ -1047,9 +1047,7 @@ function ClassDetailScreen({ password, grade, classNum, onBack, onSelectStudent,
     return () => { cancelled = true; };
   }, [grade, classNum, password]);
   
-  // 성적순으로 전환 시 전체 학생 성적 로드
-  useEffect(() => {
-      const [labels, setLabels] = useState({ current: '', previous: '' });
+    const [labels, setLabels] = useState({ current: '', previous: '' });
 
   // 성적순 전환 시 학년 전체 성적 한 번에 로드 (학번 기준)
   useEffect(() => {
