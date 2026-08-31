@@ -584,7 +584,7 @@ function AdmissionButton({ password, onOpenAdmission }) {
           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /></svg>
         </div>
         <div className="text-left">
-          <p className="text-sm font-medium" style={{color: '#1c1917'}}>2027 대학 진학현황</p>
+          <p className="text-sm font-medium" style={{color: '#1c1917'}}>대학 진학현황</p>
           <p className="text-xs mt-0.5" style={{color: '#a8a29e'}}>졸업생 진학 대학 현황 보기</p>
         </div>
       </div>
@@ -593,42 +593,79 @@ function AdmissionButton({ password, onOpenAdmission }) {
   );
 }
 
-function AdmissionListScreen({ password, onBack, onSelectUniv }) {
+function AdmissionListScreen({ password, onBack, onSelectUniv, year, setYear }) {
+  const [years, setYears] = useState([]);
   const [admissions, setAdmissions] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+  const [open, setOpen] = useState(false);
+
   useEffect(() => {
     (async () => {
       try {
-        const result = await callApi('getAdmissions', password);
-        if (result.success) setAdmissions(result.admissions || []);
-      } catch {}
-      finally { setLoading(false); }
+        const r = await callApi('getAdmissionYears', password);
+        if (r.success && r.years && r.years.length) {
+          setYears(r.years);
+          if (!year || !r.years.includes(year)) setYear(r.years[0]);
+        } else setLoading(false);
+      } catch { setLoading(false); }
     })();
   }, [password]);
-  
+
+  useEffect(() => {
+    if (!year) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const result = await callApi('getAdmissions', password, { year });
+        if (!cancelled && result.success) setAdmissions(result.admissions || []);
+      } catch {}
+      finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [year, password]);
+
   const total = admissions.reduce((s, a) => s + a.count, 0);
-  
+
   return (
     <div className="min-h-screen" style={{background: '#faf7f4'}}>
       <div className="pt-safe burgundy-gradient">
-        <div className="px-5 pb-5">
+        <div className="px-5 pb-6">
           <div className="flex items-center gap-2 mb-3">
             <button onClick={onBack} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background: 'rgba(255,255,255,0.15)'}}>
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
             <p className="text-sm" style={{color: 'rgba(255,255,255,0.75)'}}>대학 진학현황</p>
           </div>
-          <div className="flex items-baseline justify-between">
-            <h1 className="text-2xl font-medium text-white">2027 진학현황</h1>
+          <div className="flex items-center justify-between relative">
+            <div className="flex items-center gap-2">
+              <button onClick={() => setOpen(!open)} className="bg-white rounded-xl pl-3 pr-2 py-1.5 flex items-center gap-1.5 active:opacity-70">
+                <span className="text-xl font-medium" style={{color: '#6d1818'}}>{year || '----'}</span>
+                <svg className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} style={{color: '#6d1818'}} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              <h1 className="text-xl font-medium text-white">진학현황</h1>
+            </div>
             {!loading && <p className="text-sm" style={{color: 'rgba(255,255,255,0.75)'}}>{total}명 · {admissions.length}개교</p>}
+            {open && (
+              <div className="absolute left-0 bg-white rounded-xl overflow-hidden z-20" style={{top: '48px', minWidth: '120px', border: '0.5px solid #e7e5e4', boxShadow: '0 8px 24px rgba(0,0,0,0.15)'}}>
+                {years.map((y, i) => (
+                  <button key={y} onClick={() => { setYear(y); setOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm active:opacity-70" style={{color: y === year ? '#6d1818' : '#1c1917', background: y === year ? '#fef2f2' : 'white', fontWeight: y === year ? 500 : 400, borderTop: i > 0 ? '0.5px solid #f0f0ef' : 'none'}}>
+                    {y}{y === year ? ' ✓' : ''}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
-      <div className="px-4 py-4 pb-safe" style={{marginTop: '-8px'}}>
+      <div className="px-4 py-4 pb-safe" style={{marginTop: '-8px'}} onClick={() => open && setOpen(false)}>
         {loading && <div className="flex justify-center py-12"><div className="spinner" /></div>}
-        {!loading && (
+        {!loading && admissions.length === 0 && <p className="text-center py-12 text-sm" style={{color: '#a8a29e'}}>진학 데이터가 없습니다</p>}
+        {!loading && admissions.length > 0 && (
           <div className="bg-white rounded-2xl overflow-hidden" style={{border: '0.5px solid #e7e5e4'}}>
+            <div className="px-4 py-2.5" style={{borderBottom: '0.5px solid #f0f0ef'}}>
+              <p className="text-xs font-medium" style={{color: '#a8a29e'}}>주요대학 순</p>
+            </div>
             {admissions.map((a, i) => {
               const color = getUnivColor(a.univName);
               return (
@@ -653,19 +690,19 @@ function AdmissionListScreen({ password, onBack, onSelectUniv }) {
   );
 }
 
-function AdmissionDetailScreen({ password, univName, onBack }) {
+function AdmissionDetailScreen({ password, univName, onBack, year }) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
     (async () => {
       try {
-        const result = await callApi('getAdmissionsByUniv', password, { univ: univName });
+        const result = await callApi('getAdmissionsByUniv', password, { univ: univName, year });
         if (result.success) setStudents(result.results || []);
       } catch {}
       finally { setLoading(false); }
     })();
-  }, [univName, password]);
+  }, [univName, year, password]);
   
   return (
     <div className="min-h-screen" style={{background: '#faf7f4'}}>
@@ -675,7 +712,7 @@ function AdmissionDetailScreen({ password, univName, onBack }) {
             <button onClick={onBack} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background: 'rgba(255,255,255,0.15)'}}>
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
-            <p className="text-sm" style={{color: 'rgba(255,255,255,0.75)'}}>2027 진학현황</p>
+            <p className="text-sm" style={{color: 'rgba(255,255,255,0.75)'}}>{year} 진학현황</p>
           </div>
           <div className="flex items-baseline justify-between">
             <h1 className="text-2xl font-medium text-white">{univName}</h1>
@@ -914,7 +951,7 @@ function SearchTab({ password, onSelect, onOpenAdmission }) {
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /></svg>
             </div>
             <div className="text-left">
-              <p className="text-sm font-medium" style={{color: '#1c1917'}}>2027 대학 진학현황</p>
+              <p className="text-sm font-medium" style={{color: '#1c1917'}}>대학 진학현황</p>
               <p className="text-xs mt-0.5" style={{color: '#a8a29e'}}>졸업생 진학 대학 현황 보기</p>
             </div>
           </div>
@@ -1377,6 +1414,7 @@ function MainScreen({ password, onLogout, preloadedStats }) {
   const [statsRefreshKey, setStatsRefreshKey] = useState(0);
   const [classSortMode, setClassSortMode] = useState('number');
   const [selectedUniv, setSelectedUniv] = useState(null);
+  const [admissionYear, setAdmissionYear] = useState(null);
   
   // 브라우저 뒤로가기 버튼 처리
   useEffect(() => {
@@ -1431,10 +1469,10 @@ function MainScreen({ password, onLogout, preloadedStats }) {
     }
   };
   if (view === 'admissionList') {
-  return <AdmissionListScreen password={password} onBack={() => setView('main')} onSelectUniv={(univ) => { setSelectedUniv(univ); setView('admissionDetail'); }} />;
+    return <AdmissionListScreen password={password} onBack={() => setView('main')} onSelectUniv={(univ) => { setSelectedUniv(univ); setView('admissionDetail'); }} year={admissionYear} setYear={setAdmissionYear} />;
 }
 if (view === 'admissionDetail' && selectedUniv) {
-  return <AdmissionDetailScreen password={password} univName={selectedUniv} onBack={() => setView('admissionList')} />;
+  return <AdmissionDetailScreen password={password} univName={selectedUniv} onBack={() => setView('admissionList')} year={admissionYear} />;
 }
   if (view === 'studentDetail' && selectedStudent) {
     return <StudentDetailScreen student={selectedStudent} password={password} onBack={handleBackFromStudent} onStatusChanged={handleStatusChanged} />;
