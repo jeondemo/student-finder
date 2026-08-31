@@ -37,7 +37,7 @@ let photoRequesting = 0; // 현재 요청 중인 개수
 const MAX_CONCURRENT_PHOTOS = 5; // 동시 요청 최대 개수
 
 // 사진 요청 큐 처리
-async function requestPhotoQueued(studentKey, password) {
+async function requestPhotoQueued(studentKey, password, studentId) {
   // 캐시에 있으면 즉시 반환
   if (photoUrlCache[studentKey] !== undefined) {
     return photoUrlCache[studentKey];
@@ -47,7 +47,7 @@ async function requestPhotoQueued(studentKey, password) {
     const process = async () => {
       photoRequesting++;
       try {
-        const result = await callApi('getPhoto', password, { studentKey });
+        const result = await callApi('getPhoto', password, { studentKey, studentId: studentId || '' });
         const url = result.success ? result.photoUrl : null;
         photoUrlCache[studentKey] = url;
         resolve(url);
@@ -162,7 +162,7 @@ function StudentPhoto({ student, password, className, fallbackClass, showInitial
     let cancelled = false;
     (async () => {
       try {
-        const url = await requestPhotoQueued(student.studentKey, password);
+        const url = await requestPhotoQueued(student.studentKey, password, student.studentId);
         if (!cancelled && url) {
           setPhotoUrl(url);
         }
