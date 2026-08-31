@@ -734,6 +734,7 @@ function AdmissionDetailScreen({ password, univName, onBack, year }) {
                   </div>
                   <div className="p-1.5">
                     <p className="text-xs font-medium text-center truncate" style={{color: '#1c1917'}}>{s.name}</p>
+{s.isRepeat && <p className="text-[9px] text-center mt-0.5"><span className="px-1.5 py-0.5 rounded font-medium" style={{background: '#fef3c7', color: '#92400e'}}>재수</span></p>}
                     <p className="text-[9px] text-center truncate mt-0.5" style={{color: '#a8a29e'}}>{s.grade}-{s.classNum}-{s.number}</p>
                     {deptShort && <p className="text-[9px] text-center truncate mt-0.5" style={{color: '#78716c'}}>{deptShort}</p>}
                     {s.studentPhone && (
