@@ -562,6 +562,97 @@ function ResultsList({ students, onSelect }) {
   );
 }
 
+function NotesButton({ count, onClick }) {
+  return (
+    <button onClick={onClick} className="w-full mt-3 rounded-2xl p-4 flex items-center justify-between active:opacity-70 text-left" style={{background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)', border: '0.5px solid #fcd34d'}}>
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{background: 'linear-gradient(135deg, #fbbf24 0%, #b45309 100%)'}}>
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+        </div>
+        <div>
+          <p className="text-sm font-medium" style={{color: '#78350f'}}>특이사항 학생</p>
+          <p className="text-[10px]" style={{color: '#b45309'}}>기록된 학생 모아보기</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5">
+        {count !== null && count !== undefined && (<><span className="text-xl font-medium" style={{color: '#78350f'}}>{count}</span><span className="text-xs" style={{color: '#92400e'}}>명</span></>)}
+        <svg className="w-4 h-4" style={{color: '#d4a574'}} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+      </div>
+    </button>
+  );
+}
+
+function NotesListScreen({ password, onBack, onSelectStudent }) {
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [filter, setFilter] = useState('all');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true); setError('');
+      try {
+        const r = await callApi('getNotesStudents', password);
+        if (!cancelled) { if (r.success) setStudents(r.results || []); else setError(r.error || '조회 실패'); }
+      } catch { if (!cancelled) setError('서버 연결 실패'); }
+      finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [password]);
+
+  const countOf = (g) => students.filter(s => String(s.grade) === g).length;
+  const shown = filter === 'all' ? students : students.filter(s => String(s.grade) === filter);
+  const chips = [['all', `전체 ${students.length}`], ['1', `1학년 ${countOf('1')}`], ['2', `2학년 ${countOf('2')}`], ['3', `3학년 ${countOf('3')}`]];
+
+  return (
+    <div className="min-h-screen" style={{background: '#faf7f4'}}>
+      <div className="pt-safe burgundy-gradient">
+        <div className="px-5 pb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <button onClick={onBack} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{background: 'rgba(255,255,255,0.15)'}}>
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <p className="text-sm" style={{color: 'rgba(255,255,255,0.75)'}}>특이사항</p>
+          </div>
+          <div className="flex items-baseline justify-between mb-3">
+            <h1 className="text-2xl font-medium text-white">특이사항 학생</h1>
+            {!loading && <p className="text-sm" style={{color: 'rgba(255,255,255,0.75)'}}>{students.length}명</p>}
+          </div>
+          <div className="flex gap-1.5">
+            {chips.map(([k, label]) => (
+              <button key={k} onClick={() => setFilter(k)} className="px-3 py-1.5 rounded-lg text-xs active:opacity-70" style={filter === k ? {background: 'white', color: '#6d1818', fontWeight: 500} : {background: 'rgba(255,255,255,0.15)', color: 'white'}}>{label}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="px-4 py-4 pb-safe">
+        {loading && <div className="flex flex-col items-center justify-center py-16"><div className="spinner mb-3" /><p className="text-xs" style={{color: '#a8a29e'}}>불러오는 중...</p></div>}
+        {!loading && error && <p className="text-center text-red-600 py-4">{error}</p>}
+        {!loading && !error && shown.length === 0 && <p className="text-center py-12 text-sm" style={{color: '#a8a29e'}}>특이사항이 기록된 학생이 없습니다</p>}
+        {!loading && !error && shown.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {shown.map(s => (
+              <button key={s.studentKey} onClick={() => onSelectStudent(s)} className="w-full bg-white rounded-xl p-2.5 flex gap-2.5 active:opacity-70 text-left" style={{border: '0.5px solid #e7e5e4'}}>
+                <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                  <StudentPhoto student={s} password={password} className="w-full h-full object-cover" fallbackClass="w-full h-full flex items-center justify-center" showInitial={true} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-1.5">
+                    <p className="text-sm font-medium" style={{color: '#1c1917'}}>{s.name}</p>
+                    <p className="text-[10px] truncate" style={{color: '#a8a29e'}}>{s.grade}-{s.classNum}-{s.number}{s.homeroom ? ` · ${s.homeroom}` : ''}</p>
+                  </div>
+                  <p className="text-xs mt-1 rounded-lg px-2 py-1.5 break-keep" style={{background: '#fffbeb', color: '#57534e', whiteSpace: 'pre-wrap'}}>{s.note}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AdmissionButton({ password, onOpenAdmission }) {
   const [hasData, setHasData] = useState(false);
   
@@ -837,7 +928,7 @@ function TabBar({ tab, setTab }) {
   );
 }
 
-function SearchTab({ password, onSelect, onOpenAdmission }) {
+function SearchTab({ password, onSelect, onOpenAdmission, onOpenNotes }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -950,6 +1041,10 @@ function SearchTab({ password, onSelect, onOpenAdmission }) {
             )}
           </p>
         </div>
+      )}
+      
+            {!query && stats && (
+        <NotesButton count={stats.notesCount} onClick={onOpenNotes} />
       )}
       
       {!query && stats && (
@@ -1484,6 +1579,9 @@ function MainScreen({ password, onLogout, preloadedStats }) {
       setSelectedStudent({...selectedStudent, status: newStatus});
     }
   };
+    if (view === 'notesList') {
+    return <NotesListScreen password={password} onBack={goBack} onSelectStudent={handleSelectStudent} />;
+  }
   if (view === 'admissionList') {
     return <AdmissionListScreen password={password} onBack={goBack} onSelectUniv={(univ) => { setSelectedUniv(univ); setView('admissionDetail'); }} year={admissionYear} setYear={setAdmissionYear} />;
   }
@@ -1507,7 +1605,7 @@ function MainScreen({ password, onLogout, preloadedStats }) {
         <TabBar tab={tab} setTab={setTab} />
         <div className="mt-4">
           {tab === 'search' ? (
-            <SearchTab key={statsRefreshKey} password={password} onSelect={handleSelectStudent} onOpenAdmission={() => setView('admissionList')} />
+                        <SearchTab key={statsRefreshKey} password={password} onSelect={handleSelectStudent} onOpenAdmission={() => setView('admissionList')} onOpenNotes={() => { setPreviousView('main'); setView('notesList'); }} />
           ) : (
             <ClassPickerTab password={password} onOpenClass={handleOpenClass} preloadedStats={preloadedStats} onOpenGradeRanking={(g) => { setSelectedClass({ grade: g, classNum: null }); setPreviousView('main'); setView('gradeRanking'); }} />
           )}
