@@ -1630,3 +1630,14 @@ function App() {
   if (!password) return <LoginScreen onLogin={(pw) => { localStorage.setItem(PW_KEY, pw); setPassword(pw); }} />;
   return <MainScreen password={password} onLogout={() => setPassword(null)} preloadedStats={preloadedStats} refreshStats={() => refreshStats(password)} />;
 }
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  });
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
