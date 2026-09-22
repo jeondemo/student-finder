@@ -32,6 +32,24 @@ const { useState, useEffect, useRef } = React;
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzgSO9kkIeM71XVBmdrPJe5AeJaUAjtGUAIwcxljXPyR65w7oxprKjQs0zM4KTqOcuz/exec';
 const PW_KEY = 'student_finder_pw';
 const STATS_KEY = 'student_finder_stats';
+
+// 학년 성적(getGradeSemesterAll) 캐시 — 메모리 + 폰 저장(24시간)
+const gradeAllMem = {};
+async function fetchGradeAll(password, grade) {
+  if (gradeAllMem[grade]) return gradeAllMem[grade];
+  const key = `student_finder_gradeall_${grade}`;
+  try {
+    const c = JSON.parse(localStorage.getItem(key) || 'null');
+    if (c && c.t && Date.now() - c.t < 86400000 && c.data) { gradeAllMem[grade] = c.data; return c.data; }
+  } catch {}
+  const r = await callApi('getGradeSemesterAll', password, { grade });
+  if (r.success && r.grades) {
+    gradeAllMem[grade] = r.grades;
+    try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), data: r.grades })); } catch {}
+    return r.grades;
+  }
+  return null;
+}
 const photoUrlCache = {}; // { studentKey: url } - 사진 URL 캐시
 const photoQueue = []; // 요청 대기열
 let photoRequesting = 0; // 현재 요청 중인 개수
@@ -1184,13 +1202,13 @@ function ClassDetailScreen({ password, grade, classNum, onBack, onSelectStudent,
     (async () => {
       setGradesLoading(true);
       try {
-        const r = await callApi('getGradeSemesterAll', password, { grade });
-        if (!cancelled && r.success && r.grades) {
-          const cur = r.grades.current || {};
+                const gd = await fetchGradeAll(password, grade);
+        if (!cancelled && gd) {
+          const cur = gd.current || {};
           const map = {};
           Object.keys(cur).forEach(id => { map[id] = { cur: cur[id] }; });
           setGradesMap(map);
-          setLabels({ current: r.grades.currentLabel || '', previous: r.grades.previousLabel || '' });
+          setLabels({ current: gd.currentLabel || '', previous: gd.previousLabel || '' });
         }
       } catch {}
       if (!cancelled) setGradesLoading(false);
@@ -1313,14 +1331,14 @@ function GradeRankingScreen({ password, grade, onBack, onSelectStudent }) {
       try {
         const [classResults, gradesResult] = await Promise.all([
           Promise.all(Array.from({ length: classCount }, (_, i) => String(i + 1)).map(c => callApi('searchClass', password, { grade, classNum: c }))),
-          callApi('getGradeSemesterAll', password, { grade })
+                    fetchGradeAll(password, grade)
         ]);
         if (cancelled) return;
         const all = [];
         classResults.forEach(r => { if (r.success && r.results) all.push(...r.results.filter(s => !s.status || s.status === '재학')); });
         setStudents(all);
-        if (gradesResult.success && gradesResult.grades) {
-          const gd = gradesResult.grades;
+        if (gradesResult) {
+          const gd = gradesResult;
           const cur = gd.current || {}, prevRanks = gd.previousRanks || {};
           const map = {};
           Object.keys(cur).forEach(id => { map[id] = { cur: cur[id], previousRank: prevRanks[id] || null }; });
