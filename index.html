@@ -31,6 +31,7 @@ input, select, button { font-size: 16px !important; }
 const { useState, useEffect, useRef } = React;
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzgSO9kkIeM71XVBmdrPJe5AeJaUAjtGUAIwcxljXPyR65w7oxprKjQs0zM4KTqOcuz/exec';
 const PW_KEY = 'student_finder_pw';
+const STATS_KEY = 'student_finder_stats';
 const photoUrlCache = {}; // { studentKey: url } - 사진 URL 캐시
 const photoQueue = []; // 요청 대기열
 let photoRequesting = 0; // 현재 요청 중인 개수
@@ -246,9 +247,10 @@ function StudentCard({ student, password, onStatusChanged }) {
     setNoteSaving(true);
     try {
       const result = await callApi('updateNote', password, { studentKey: student.studentKey, note: newNote });
-      if (result.success) {
+            if (result.success) {
         setNote(newNote);
         setEditingNote(false);
+        if (onStatusChanged) onStatusChanged(status);
       } else {
         alert('저장 실패: ' + (result.error || ''));
       }
@@ -928,27 +930,13 @@ function TabBar({ tab, setTab }) {
   );
 }
 
-function SearchTab({ password, onSelect, onOpenAdmission, onOpenNotes }) {
+function SearchTab({ password, onSelect, onOpenAdmission, onOpenNotes, stats }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [stats, setStats] = useState(null);
-  const [admissions, setAdmissions] = useState([]);
   const [expandedGrade, setExpandedGrade] = useState(null);
   const debounceRef = useRef(null);
-  
-  // 통계 로드
-  useEffect(() => {
-    (async () => {
-      try {
-        const result = await callApi('getStats', password);
-        if (result.success) setStats(result.stats);
-        const admResult = await callApi('getAdmissions', password);
-        if (admResult.success) setAdmissions(admResult.admissions || []);
-      } catch {}
-    })();
-  }, [password]);
   
   useEffect(() => {
     if (!query.trim()) { setResults([]); setError(''); return; }
@@ -1508,7 +1496,7 @@ function StudentDetailScreen({ student, password, onBack, onStatusChanged }) {
   );
 }
 
-function MainScreen({ password, onLogout, preloadedStats }) {
+function MainScreen({ password, onLogout, preloadedStats, refreshStats }) {
   const [tab, setTab] = useState('search');
   const [view, setView] = useState('main');
   const [selectedClass, setSelectedClass] = useState(null);
@@ -1571,9 +1559,9 @@ function MainScreen({ password, onLogout, preloadedStats }) {
     setSelectedStudent(null);
   };
   
-  const handleStatusChanged = (newStatus) => {
+    const handleStatusChanged = (newStatus) => {
     // 메인 화면 통계 갱신용
-    setStatsRefreshKey(k => k + 1);
+    refreshStats();
     // selected 학생 상태도 업데이트
     if (selectedStudent) {
       setSelectedStudent({...selectedStudent, status: newStatus});
@@ -1605,7 +1593,7 @@ function MainScreen({ password, onLogout, preloadedStats }) {
         <TabBar tab={tab} setTab={setTab} />
         <div className="mt-4">
           {tab === 'search' ? (
-                        <SearchTab key={statsRefreshKey} password={password} onSelect={handleSelectStudent} onOpenAdmission={() => setView('admissionList')} onOpenNotes={() => { setPreviousView('main'); setView('notesList'); }} />
+            <SearchTab password={password} stats={preloadedStats} onSelect={handleSelectStudent} onOpenAdmission={() => setView('admissionList')} onOpenNotes={() => { setPreviousView('main'); setView('notesList'); }} />
           ) : (
             <ClassPickerTab password={password} onOpenClass={handleOpenClass} preloadedStats={preloadedStats} onOpenGradeRanking={(g) => { setSelectedClass({ grade: g, classNum: null }); setPreviousView('main'); setView('gradeRanking'); }} />
           )}
@@ -1616,46 +1604,29 @@ function MainScreen({ password, onLogout, preloadedStats }) {
 }
 
 function App() {
-  const [password, setPassword] = useState(null);
-  const [checking, setChecking] = useState(true);
-  const [preloadedStats, setPreloadedStats] = useState(null);
-  
-  // 로그인되면 즉시 통계 백그라운드 로딩
-  useEffect(() => {
-    if (!password) return;
-    (async () => {
-      try {
-        const result = await callApi('getStats', password);
-        if (result.success && result.stats) {
-          setPreloadedStats(result.stats);
-        }
-      } catch {}
-    })();
-  }, [password]);
-  
-  useEffect(() => {
-    const saved = localStorage.getItem(PW_KEY);
-    if (saved) {
-      callApi('login', saved).then(result => {
-        if (result.success) setPassword(saved);
-        else localStorage.removeItem(PW_KEY);
-        setChecking(false);
-      }).catch(() => setChecking(false));
-    } else setChecking(false);
-  }, []);
-  
-  if (checking) return <div className="min-h-screen flex items-center justify-center" style={{background: '#faf7f4'}}><div className="spinner" /></div>;
-  if (!password) return <LoginScreen onLogin={setPassword} />;
-  return <MainScreen password={password} onLogout={() => setPassword(null)} preloadedStats={preloadedStats} />;
-}
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  const [password, setPassword] = useState(() => localStorage.getItem(PW_KEY));
+  const [preloadedStats, setPreloadedStats] = useState(() => {
+    try { const c = localStorage.getItem(STATS_KEY); return c ? JSON.parse(c) : null; } catch { return null; }
   });
-}
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-</script>
-</body>
-</html>
+  // 통계 갱신 — 결과를 폰에 저장해두고 다음 실행 때 즉시 표시
+  const refreshStats = React.useCallback(async (pw) => {
+    if (!pw) return;
+    try {
+      const result = await callApi('getStats', pw);
+      if (result.success && result.stats) {
+        setPreloadedStats(result.stats);
+        try { localStorage.setItem(STATS_KEY, JSON.stringify(result.stats)); } catch {}
+      } else if (result.error && result.error.indexOf('비밀번호') >= 0) {
+        localStorage.removeItem(PW_KEY);
+        localStorage.removeItem(STATS_KEY);
+        setPassword(null);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => { refreshStats(password); }, [password, refreshStats]);
+
+  if (!password) return <LoginScreen onLogin={(pw) => { localStorage.setItem(PW_KEY, pw); setPassword(pw); }} />;
+  return <MainScreen password={password} onLogout={() => setPassword(null)} preloadedStats={preloadedStats} refreshStats={() => refreshStats(password)} />;
+}
