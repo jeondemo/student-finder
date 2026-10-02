@@ -10,10 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="학생찾기" />
 <title>학생 찾기</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
-<script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.25.6/babel.min.js"></script>
+<link rel="stylesheet" href="tailwind.css" />
 <style>
 html, body { margin: 0; padding: 0; background: #faf7f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: contain; }
 .pt-safe { padding-top: calc(env(safe-area-inset-top) + 12px); }
@@ -26,29 +23,42 @@ input, select, button { font-size: 16px !important; }
 </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><div id="boot" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center"><div class="spinner"></div><p id="boot-msg" style="margin:0;font-size:13px;color:#a8a29e;line-height:1.6">불러오는 중…</p><button id="boot-retry" onclick="location.reload()" style="display:none;padding:10px 22px;border:0;border-radius:14px;background:#6d1818;color:#fff">다시 시도</button></div></div>
+<script>
+(function () {
+  var show = function (msg) {
+    var m = document.getElementById('boot-msg'), b = document.getElementById('boot-retry');
+    if (m) m.textContent = msg;
+    if (b) b.style.display = 'inline-block';
+  };
+  var libs = function () {
+    return ' [React ' + (window.React ? 'O' : 'X') + ' · ReactDOM ' + (window.ReactDOM ? 'O' : 'X') + ' · Babel ' + (window.Babel ? 'O' : 'X') + ']';
+  };
+  window.addEventListener('error', function (e) {
+    if (!document.getElementById('boot')) return;
+    var t = e.target;
+    if (t && t.getAttribute && t.getAttribute('data-optional') !== null) return;
+    var src = t && t.src ? String(t.src).split('/').pop() + ' 불러오기 실패' : '';
+    show('앱을 시작하지 못했어요. ' + (e.message || src) + libs());
+  }, true);
+  setTimeout(function () {
+    if (document.getElementById('boot')) show('시작이 지연되고 있어요. 네트워크를 확인하고 다시 시도해 주세요.' + libs());
+  }, 12000);
+})();
+</script>
+<script src="lib-react.js"></script>
+<script src="lib-react-dom.js"></script>
+<script src="lib-babel.js"></script>
+<script async data-optional src="https://cdn.tailwindcss.com"></script>
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbzgSO9kkIeM71XVBmdrPJe5AeJaUAjtGUAIwcxljXPyR65w7oxprKjQs0zM4KTqOcuz/exec';
 const PW_KEY = 'student_finder_pw';
 const STATS_KEY = 'student_finder_stats';
 
-// 학년 성적(getGradeSemesterAll) 캐시 — 메모리 + 폰 저장(24시간)
-const gradeAllMem = {};
 async function fetchGradeAll(password, grade) {
-  if (gradeAllMem[grade]) return gradeAllMem[grade];
-  const key = `student_finder_gradeall_${grade}`;
-  try {
-    const c = JSON.parse(localStorage.getItem(key) || 'null');
-    if (c && c.t && Date.now() - c.t < 86400000 && c.data) { gradeAllMem[grade] = c.data; return c.data; }
-  } catch {}
   const r = await callApi('getGradeSemesterAll', password, { grade });
-  if (r.success && r.grades) {
-    gradeAllMem[grade] = r.grades;
-    try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), data: r.grades })); } catch {}
-    return r.grades;
-  }
-  return null;
+  return (r && r.success && r.grades) ? r.grades : null;
 }
 const photoUrlCache = {}; // { studentKey: url } - 사진 URL 캐시
 const photoQueue = []; // 요청 대기열
@@ -114,13 +124,171 @@ function getAvatarGradient(key) {
   return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
 }
 
-async function callApi(action, password, params = {}) {
+async function gasCall(action, password, params = {}) {
   const url = new URL(GAS_URL);
   url.searchParams.set('action', action);
   url.searchParams.set('password', password);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   const res = await fetch(url.toString(), { method: 'GET' });
   return await res.json();
+}
+
+// ── 폰 저장 데이터 ──
+// 학생 전체 명단을 한 번 받아 폰에 저장해 두고, 검색·반 명단·특이사항·인원수는 폰에서 바로 계산한다.
+// 서버(GAS)는 뒤에서 최신 데이터로 갱신할 때와 저장(학적·특이사항)할 때만 쓴다.
+const SNAP_KEY = 'student_finder_snapshot';
+const RC_PREFIX = 'student_finder_rc_';
+const RC_FRESH_MS = { getGrades: 6 * 3600 * 1000, getGradeSemesterAll: 6 * 3600 * 1000 };
+const RC_FRESH_DEFAULT_MS = 10 * 60 * 1000;
+let snap = null;
+try { snap = JSON.parse(localStorage.getItem(SNAP_KEY) || 'null'); } catch {}
+if (snap && !Array.isArray(snap.students)) snap = null;
+try { ['1', '2', '3'].forEach(g => localStorage.removeItem('student_finder_gradeall_' + g)); } catch {}
+let snapLoading = null;
+const rcMem = {};
+const rcInflight = {};
+
+function saveSnap() { try { localStorage.setItem(SNAP_KEY, JSON.stringify(snap)); } catch {} }
+
+function wipeLocalData() {
+  try { Object.keys(localStorage).filter(k => k.startsWith('student_finder_')).forEach(k => localStorage.removeItem(k)); } catch {}
+  snap = null;
+  Object.keys(rcMem).forEach(k => delete rcMem[k]);
+}
+
+function loadSnapshot(password) {
+  if (snapLoading) return snapLoading;
+  snapLoading = (async () => {
+    try {
+      const r = await gasCall('getAll', password);
+      if (r && r.success && r.data && Array.isArray(r.data.students)) {
+        snap = { students: r.data.students, homerooms: r.data.homerooms || {}, t: Date.now() };
+        saveSnap();
+        window.dispatchEvent(new Event('sf-snapshot'));
+        return true;
+      }
+      if (r && r.error && String(r.error).indexOf('비밀번호') >= 0) {
+        wipeLocalData();
+        location.reload();
+      }
+    } catch {}
+    return false;
+  })();
+  snapLoading.finally(() => { snapLoading = null; });
+  return snapLoading;
+}
+
+const isEnrolled = (s) => !s.status || s.status === '재학';
+const byClassNumber = (a, b) => Number(a.grade) - Number(b.grade) || Number(a.classNum) - Number(b.classNum) || Number(a.number) - Number(b.number);
+
+const LOCAL_API = {
+  search: ({ query }) => {
+    const q = String(query || '').trim();
+    if (!q) return { success: true, results: [] };
+    const all = snap.students;
+    const pick = (g, c, n) => all.filter(s => (g === null || Number(s.grade) === g) && Number(s.classNum) === c && Number(s.number) === n);
+    let m, results;
+    if ((m = q.match(/^(\d+)\s*학년\s*(\d+)\s*반\s*(\d+)\s*번?$/))) results = pick(+m[1], +m[2], +m[3]);
+    else if ((m = q.match(/^(\d+)[-\s./](\d+)[-\s./](\d+)$/))) results = pick(+m[1], +m[2], +m[3]);
+    else if ((m = q.match(/^(\d+)[-\s./](\d+)$/))) results = pick(null, +m[1], +m[2]);
+    else if ((m = q.match(/^(\d)(\d{2})(\d{2})$/))) results = pick(+m[1], +m[2], +m[3]);
+    else if ((m = q.match(/^(\d)(\d)(\d{2})$/))) results = pick(+m[1], +m[2], +m[3]);
+    else results = all.filter(s => String(s.name).includes(q));
+    return { success: true, results: results.slice().sort(byClassNumber).map(s => ({ ...s })) };
+  },
+  searchClass: ({ grade, classNum }) => ({
+    success: true,
+    results: snap.students
+      .filter(s => String(s.grade) === String(grade) && String(s.classNum) === String(classNum))
+      .sort((a, b) => Number(a.number) - Number(b.number))
+      .map(s => ({ ...s })),
+    homeroom: snap.homerooms[`${grade}-${classNum}`] || ''
+  }),
+  getNotesStudents: () => ({
+    success: true,
+    results: snap.students
+      .filter(s => String(s.note || '').trim() && isEnrolled(s))
+      .sort(byClassNumber)
+      .map(s => ({ ...s, homeroom: snap.homerooms[`${s.grade}-${s.classNum}`] || '' }))
+  }),
+  getStats: () => {
+    const grades = {};
+    let totalEnrolled = 0, totalNotEnrolled = 0, notesCount = 0;
+    snap.students.forEach(s => {
+      const g = String(s.grade), c = String(s.classNum);
+      if (!grades[g]) grades[g] = { total: 0, classes: {} };
+      if (!grades[g].classes[c]) grades[g].classes[c] = 0;
+      if (isEnrolled(s)) {
+        grades[g].total++;
+        grades[g].classes[c]++;
+        totalEnrolled++;
+        if (String(s.note || '').trim()) notesCount++;
+      } else totalNotEnrolled++;
+    });
+    return { success: true, stats: { grades, totalEnrolled, totalNotEnrolled, notesCount, homerooms: snap.homerooms } };
+  }
+};
+
+// 자주 안 바뀌는 조회: 저장된 것을 먼저 보여주고, 오래된 것(성적 6시간·진학 10분)은 뒤에서 새로 받아둔다.
+const CACHED_READS = new Set(['getGrades', 'getGradeSemesterAll', 'getAdmissionYears', 'getAdmissions', 'getAdmissionsByUniv']);
+
+function rcGet(key) {
+  if (rcMem[key]) return rcMem[key];
+  try {
+    const v = JSON.parse(localStorage.getItem(RC_PREFIX + key) || 'null');
+    if (v && v.r) { rcMem[key] = v; return v; }
+  } catch {}
+  return null;
+}
+
+function rcSet(key, r) {
+  const v = { t: Date.now(), r };
+  rcMem[key] = v;
+  const str = JSON.stringify(v);
+  try { localStorage.setItem(RC_PREFIX + key, str); }
+  catch {
+    try {
+      Object.keys(localStorage).filter(k => k.startsWith(RC_PREFIX)).forEach(k => localStorage.removeItem(k));
+      localStorage.setItem(RC_PREFIX + key, str);
+    } catch {}
+  }
+}
+
+function cachedRead(action, password, params) {
+  const key = action + '|' + Object.keys(params).sort().map(k => k + '=' + params[k]).join('&');
+  const refresh = () => {
+    if (!rcInflight[key]) {
+      rcInflight[key] = gasCall(action, password, params)
+        .then(r => { if (r && r.success) rcSet(key, r); return r; })
+        .finally(() => { delete rcInflight[key]; });
+    }
+    return rcInflight[key];
+  };
+  const hit = rcGet(key);
+  if (hit) {
+    if (Date.now() - hit.t > (RC_FRESH_MS[action] || RC_FRESH_DEFAULT_MS)) refresh().catch(() => {});
+    return Promise.resolve(hit.r);
+  }
+  return refresh();
+}
+
+async function callApi(action, password, params = {}) {
+  if (LOCAL_API[action]) {
+    if (!snap && snapLoading) { try { await snapLoading; } catch {} }
+    if (snap) return LOCAL_API[action](params);
+    return gasCall(action, password, params);
+  }
+  if (CACHED_READS.has(action)) return cachedRead(action, password, params);
+  const r = await gasCall(action, password, params);
+  if (r && r.success && snap && (action === 'updateStatus' || action === 'updateNote')) {
+    const s = snap.students.find(x => x.studentKey === params.studentKey);
+    if (s) {
+      if (action === 'updateStatus') s.status = params.status;
+      else s.note = params.note;
+      saveSnap();
+    }
+  }
+  return r;
 }
 
 const UNIV_COLORS = [
@@ -1556,7 +1724,7 @@ function MainScreen({ password, onLogout, preloadedStats, refreshStats }) {
   
   const handleLogoutClick = () => {
     if (confirm('로그아웃 하시겠어요?')) {
-      localStorage.removeItem(PW_KEY);
+      wipeLocalData();
       onLogout();
     }
   };
@@ -1642,6 +1810,24 @@ function App() {
       }
     } catch {}
   }, []);
+
+  useEffect(() => {
+    if (!password) return;
+    let alive = true;
+    const sync = async () => {
+      const ok = await loadSnapshot(password);
+      if (!alive || !ok) return;
+      for (const g of ['1', '2', '3']) { try { await callApi('getGradeSemesterAll', password, { grade: g }); } catch {} }
+    };
+    const onSnap = () => refreshStats(password);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && snap && Date.now() - snap.t > 5 * 60 * 1000) sync();
+    };
+    window.addEventListener('sf-snapshot', onSnap);
+    document.addEventListener('visibilitychange', onVisible);
+    sync();
+    return () => { alive = false; window.removeEventListener('sf-snapshot', onSnap); document.removeEventListener('visibilitychange', onVisible); };
+  }, [password, refreshStats]);
 
   useEffect(() => { refreshStats(password); }, [password, refreshStats]);
 
